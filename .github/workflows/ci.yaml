@@ -51,7 +51,7 @@ jobs:
           args: -- -D warnings
 
   coverage:
-    name: Code coverage
+    name: Code Coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

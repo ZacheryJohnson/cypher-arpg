@@ -57,9 +57,7 @@ impl AffixDefinitionDatabase {
             .map(|affix| (affix.id, affix))
             .collect::<HashMap<_, _>>();
 
-        AffixDefinitionDatabase {
-            affixes,
-        }
+        AffixDefinitionDatabase { affixes }
     }
 
     /// Generates an [Affix] given a set of criteria. May return `None` if criteria would exclude all loaded [AffixDefinition]s.
@@ -198,13 +196,13 @@ mod tests {
     fn affix_criteria_only_contains_allowed_ids() {
         let affix_database = AffixDefinitionDatabase::initialize();
 
-        let mut affixes = vec!();
+        let mut affixes = vec![];
 
         let mut allowed = HashSet::new();
         allowed.insert(1);
 
-        let criteria = AffixGenerationCriteria { 
-            allowed_ids: Some(allowed.clone()), 
+        let criteria = AffixGenerationCriteria {
+            allowed_ids: Some(allowed.clone()),
             ..Default::default()
         };
 
@@ -222,15 +220,15 @@ mod tests {
     fn affix_criteria_does_not_contain_disallowed_ids() {
         let affix_database = AffixDefinitionDatabase::initialize();
 
-        let mut affixes = vec!();
+        let mut affixes = vec![];
 
         let mut disallowed = HashSet::new();
         disallowed.insert(2);
         disallowed.insert(3);
         disallowed.insert(4);
 
-        let criteria = AffixGenerationCriteria { 
-            disallowed_ids: Some(disallowed.clone()), 
+        let criteria = AffixGenerationCriteria {
+            disallowed_ids: Some(disallowed.clone()),
             ..Default::default()
         };
 
@@ -248,10 +246,10 @@ mod tests {
     fn affix_criteria_only_prefixes() {
         let affix_database = AffixDefinitionDatabase::initialize();
 
-        let mut affixes = vec!();
+        let mut affixes = vec![];
 
-        let criteria = AffixGenerationCriteria { 
-            placement: Some(AffixPlacement::Prefix), 
+        let criteria = AffixGenerationCriteria {
+            placement: Some(AffixPlacement::Prefix),
             ..Default::default()
         };
 
