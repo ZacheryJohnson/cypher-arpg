@@ -22,8 +22,6 @@ fn round_to(num: f32, decimal_places: u32) -> f32 {
 
 pub struct AffixDefinitionDatabase {
     affixes: HashMap<AffixDefinitionId, AffixDefinition>,
-
-    rng: rand::rngs::ThreadRng,
 }
 
 #[derive(Default, Debug)]
@@ -61,12 +59,11 @@ impl AffixDefinitionDatabase {
 
         AffixDefinitionDatabase {
             affixes,
-            rng: rand::thread_rng(),
         }
     }
 
     /// Generates an [Affix] given a set of criteria. May return `None` if criteria would exclude all loaded [AffixDefinition]s.
-    pub fn generate(&mut self, criteria: &AffixGenerationCriteria) -> Option<Affix> {
+    pub fn generate(&self, criteria: &AffixGenerationCriteria) -> Option<Affix> {
         let affix_pool = self
             .affixes
             .iter()
@@ -85,7 +82,7 @@ impl AffixDefinitionDatabase {
             .map(|def| def.1)
             .collect::<Vec<&AffixDefinition>>();
 
-        let affix_definition = affix_pool.choose(&mut self.rng)?;
+        let affix_definition = affix_pool.choose(&mut rand::thread_rng())?;
 
         let tiers = {
             if criteria.maximum_tier.is_some() {
@@ -98,7 +95,7 @@ impl AffixDefinitionDatabase {
         let tier = tiers
             .iter()
             .filter(|tier| tier.item_level_req.unwrap_or(0) <= criteria.item_level.unwrap_or(0))
-            .choose(&mut self.rng)?;
+            .choose(&mut rand::thread_rng())?;
 
         let stats = tier
             .stats
@@ -107,7 +104,7 @@ impl AffixDefinitionDatabase {
                 StatModifier(
                     stat.stat,
                     round_to(
-                        self.rng.gen_range(stat.lower_bound..=stat.upper_bound),
+                        thread_rng().gen_range(stat.lower_bound..=stat.upper_bound),
                         tier.precision_places.unwrap_or(0),
                     ),
                 )
@@ -186,14 +183,85 @@ pub struct Affix<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AffixDefinitionDatabase, AffixGenerationCriteria};
+    use super::*;
 
     #[test]
     fn init_affix_database() {
-        let mut affix_database = AffixDefinitionDatabase::initialize();
+        let affix_database = AffixDefinitionDatabase::initialize();
 
         let affix = affix_database.generate(&AffixGenerationCriteria::default());
 
         assert!(affix.is_some());
+    }
+
+    #[test]
+    fn affix_criteria_only_contains_allowed_ids() {
+        let affix_database = AffixDefinitionDatabase::initialize();
+
+        let mut affixes = vec!();
+
+        let mut allowed = HashSet::new();
+        allowed.insert(1);
+
+        let criteria = AffixGenerationCriteria { 
+            allowed_ids: Some(allowed.clone()), 
+            ..Default::default()
+        };
+
+        for _ in 0..=1000 {
+            let affix = affix_database.generate(&criteria);
+            affixes.push(affix);
+        }
+
+        for affix in affixes {
+            assert!(allowed.contains(&affix.unwrap()._definition.id));
+        }
+    }
+
+    #[test]
+    fn affix_criteria_does_not_contain_disallowed_ids() {
+        let affix_database = AffixDefinitionDatabase::initialize();
+
+        let mut affixes = vec!();
+
+        let mut disallowed = HashSet::new();
+        disallowed.insert(2);
+        disallowed.insert(3);
+        disallowed.insert(4);
+
+        let criteria = AffixGenerationCriteria { 
+            disallowed_ids: Some(disallowed.clone()), 
+            ..Default::default()
+        };
+
+        for _ in 0..=1000 {
+            let affix = affix_database.generate(&criteria);
+            affixes.push(affix);
+        }
+
+        for affix in affixes {
+            assert!(!disallowed.contains(&affix.unwrap()._definition.id));
+        }
+    }
+
+    #[test]
+    fn affix_criteria_only_prefixes() {
+        let affix_database = AffixDefinitionDatabase::initialize();
+
+        let mut affixes = vec!();
+
+        let criteria = AffixGenerationCriteria { 
+            placement: Some(AffixPlacement::Prefix), 
+            ..Default::default()
+        };
+
+        for _ in 0..=1000 {
+            let affix = affix_database.generate(&criteria);
+            affixes.push(affix);
+        }
+
+        for affix in affixes {
+            assert!(affix.unwrap()._definition.placement == AffixPlacement::Prefix);
+        }
     }
 }
