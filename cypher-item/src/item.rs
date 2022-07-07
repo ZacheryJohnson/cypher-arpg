@@ -1,24 +1,139 @@
-pub struct _Item;
+use cypher_core::affix::{
+    Affix, AffixDefinitionDatabase, AffixDefinitionId, AffixGenerationCriteria,
+};
+use rand::{distributions::WeightedIndex, prelude::*};
+use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 
-use cypher_core::stat::StatList;
+pub type ItemDefinitionId = u64;
 
-/// Items that can be purchased.
-pub trait Purchaseable {
-    /// How much does it cost to purchase this item?
-    fn purchase_price() -> Vec<_Item>;
-
-    /// Can this item be purchased infinitely?
-    fn finite() -> bool;
+pub struct ItemDefinitionDatabase {
+    items: HashMap<ItemDefinitionId, ItemDefinition>,
 }
 
-/// Items that can be sold.
-pub trait Sellable {
-    /// How much does this item sell for?
-    fn sell_price() -> Vec<_Item>;
+impl ItemDefinitionDatabase {
+    pub fn initialize() -> ItemDefinitionDatabase {
+        let item_file = include_str!("../data/item.json");
+
+        let definitions: Vec<ItemDefinition> = serde_json::de::from_str(item_file).unwrap();
+
+        let items = definitions
+            .into_iter()
+            .map(|item| (item.id, item))
+            .collect::<HashMap<_, _>>();
+
+        ItemDefinitionDatabase { items }
+    }
+
+    pub fn get_definition_by_id(&self, id: &ItemDefinitionId) -> Option<&ItemDefinition> {
+        self.items.get(id)
+    }
+
+    pub fn item_definitions(&self) -> Vec<&ItemDefinition> {
+        self.items
+            .iter()
+            .map(|def| def.1)
+            .collect::<Vec<&ItemDefinition>>()
+    }
 }
 
-/// Items that can be equipped.
-pub trait Equippable {
-    /// What stats are required to equip this item?
-    fn requirements() -> Option<StatList>;
+#[derive(Clone)]
+pub struct ItemDefinitionCriteria {
+    pub allowed_affix_definition_ids: Option<HashSet<AffixDefinitionId>>,
+
+    pub disallowed_affix_definition_ids: Option<HashSet<AffixDefinitionId>>,
+
+    /// How many affixes can this item roll? Stored as tuples, where tuple.0 = number of affixes possible, and tuple.1 = affix weight
+    pub affix_count_weighting: Vec<(u8 /* count */, u64 /* weight */)>,
+}
+
+impl Default for ItemDefinitionCriteria {
+    fn default() -> Self {
+        Self {
+            affix_count_weighting: vec![(1, 500), (2, 300), (3, 100), (4, 20), (5, 5), (6, 1)],
+
+            allowed_affix_definition_ids: Default::default(),
+            disallowed_affix_definition_ids: Default::default(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ItemDefinition {
+    pub id: ItemDefinitionId,
+
+    // TODO: remove this
+    debug_name: Option<String>,
+}
+
+impl ItemDefinition {
+    pub fn generate(
+        &self,
+        affix_database: &AffixDefinitionDatabase,
+        criteria: &ItemDefinitionCriteria,
+    ) -> Item {
+        let mut affix_criteria = AffixGenerationCriteria {
+            allowed_ids: criteria.allowed_affix_definition_ids.clone(),
+            disallowed_ids: criteria.disallowed_affix_definition_ids.clone(),
+            ..Default::default()
+        };
+
+        let mut affixes = vec![];
+
+        let distribution = WeightedIndex::new(
+            criteria
+                .affix_count_weighting
+                .iter()
+                .map(|pair| pair.1)
+                .collect::<Vec<u64>>()
+                .as_slice(),
+        )
+        .unwrap();
+        let mut rng = rand::thread_rng();
+        let affix_count = criteria.affix_count_weighting[distribution.sample(&mut rng)].0;
+
+        for _ in 0..affix_count {
+            let affix = affix_database.generate(&affix_criteria);
+            if affix.is_none() {
+                continue;
+            }
+
+            let affix_definition = affix_database
+                .get_definition_by_id(&affix.as_ref().unwrap().definition)
+                .unwrap();
+            if affix_criteria.disallowed_ids.is_none() {
+                affix_criteria.disallowed_ids = Some(HashSet::new());
+            }
+            affix_criteria
+                .disallowed_ids
+                .as_mut()
+                .unwrap()
+                .insert(affix_definition.id);
+
+            // TODO: handle None
+            affixes.push(affix.unwrap());
+        }
+
+        Item {
+            definition_id: self.id,
+            affixes,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Item {
+    definition_id: ItemDefinitionId,
+
+    affixes: Vec<Affix>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn init_item_database() {
+        let item_database = ItemDefinitionDatabase::initialize();
+    }
 }

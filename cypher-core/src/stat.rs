@@ -10,6 +10,7 @@ pub enum Stat {
     Complexity,
     MoveSpeed,
     Health,
+    Energy,
 }
 
 #[derive(Clone, PartialEq)]

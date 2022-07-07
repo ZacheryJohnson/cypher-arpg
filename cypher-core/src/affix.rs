@@ -5,9 +5,8 @@ use serde::Deserialize;
 
 use crate::stat::{Stat, StatList, StatModifier};
 
-type AffixGenerationSeed = u128;
-type AffixDefinitionId = u32;
-type TierId = u16;
+pub type AffixDefinitionId = u32;
+pub type AffixTierId = u16;
 
 #[derive(Clone, Deserialize, Debug, PartialEq)]
 pub enum AffixPlacement {
@@ -20,6 +19,7 @@ fn round_to(num: f32, decimal_places: u32) -> f32 {
     (num * factor as f32).round() / factor as f32
 }
 
+#[derive(Debug)]
 pub struct AffixDefinitionDatabase {
     affixes: HashMap<AffixDefinitionId, AffixDefinition>,
 }
@@ -27,9 +27,6 @@ pub struct AffixDefinitionDatabase {
 #[derive(Default, Debug)]
 /// Requirements when generating [Affix]es.
 pub struct AffixGenerationCriteria {
-    /// Which seed should be used for generating an [Affix], if any.
-    pub seed: Option<AffixGenerationSeed>,
-
     /// Which [AffixDefinition]s should be considered, if any.
     pub allowed_ids: Option<HashSet<AffixDefinitionId>>,
 
@@ -40,7 +37,7 @@ pub struct AffixGenerationCriteria {
     pub placement: Option<AffixPlacement>,
 
     /// Maximum tier of [Affix] to generate, if any.
-    pub maximum_tier: Option<TierId>,
+    pub maximum_tier: Option<AffixTierId>,
 
     /// Item level.
     pub item_level: Option<u8>,
@@ -112,21 +109,25 @@ impl AffixDefinitionDatabase {
         let stat_list = StatList::from(stats.as_slice());
 
         Some(Affix {
-            _definition: affix_definition,
-            _tier: tier.tier,
-            _stats: stat_list,
+            definition: affix_definition.id,
+            tier: tier.tier,
+            stats: stat_list,
         })
+    }
+
+    pub fn get_definition_by_id(&self, id: &AffixDefinitionId) -> Option<&AffixDefinition> {
+        self.affixes.get(id)
     }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AffixDefinition {
     /// Opaque ID.
-    id: AffixDefinitionId,
+    pub id: AffixDefinitionId,
 
-    placement: AffixPlacement,
+    pub placement: AffixPlacement,
 
-    tiers: BTreeMap<TierId, AffixDefinitionTier>,
+    pub tiers: BTreeMap<AffixTierId, AffixDefinitionTier>,
 }
 
 impl AffixDefinition {
@@ -135,8 +136,8 @@ impl AffixDefinition {
         self.tiers_to(&(self.tiers.len() as u16))
     }
 
-    /// Gets all [AffixDefinitionTier]s of an [AffixDefinition], starting at [TierId] 1 and ending at `upper_tier`, inclusive.
-    fn tiers_to(&self, upper_tier: &TierId) -> Vec<&AffixDefinitionTier> {
+    /// Gets all [AffixDefinitionTier]s of an [AffixDefinition], starting at [AffixTierId] 1 and ending at `upper_tier`, inclusive.
+    fn tiers_to(&self, upper_tier: &AffixTierId) -> Vec<&AffixDefinitionTier> {
         let mut tiers = vec![];
 
         for (affix_tier_id, affix_tier) in &self.tiers {
@@ -152,8 +153,8 @@ impl AffixDefinition {
 }
 
 #[derive(Deserialize, Debug)]
-struct AffixDefinitionTier {
-    tier: TierId,
+pub struct AffixDefinitionTier {
+    tier: AffixTierId,
 
     stats: Vec<AffixDefinitionStat>,
 
@@ -171,12 +172,13 @@ struct AffixDefinitionStat {
     upper_bound: f32,
 }
 
-pub struct Affix<'a> {
-    _definition: &'a AffixDefinition,
+#[derive(Debug)]
+pub struct Affix {
+    pub definition: AffixDefinitionId,
 
-    _tier: TierId,
+    pub tier: AffixTierId,
 
-    _stats: StatList,
+    pub stats: StatList,
 }
 
 #[cfg(test)]
@@ -212,7 +214,7 @@ mod tests {
         }
 
         for affix in affixes {
-            assert!(allowed.contains(&affix.unwrap()._definition.id));
+            assert!(allowed.contains(&affix.unwrap().definition));
         }
     }
 
@@ -238,7 +240,7 @@ mod tests {
         }
 
         for affix in affixes {
-            assert!(!disallowed.contains(&affix.unwrap()._definition.id));
+            assert!(!disallowed.contains(&affix.unwrap().definition));
         }
     }
 
@@ -259,7 +261,10 @@ mod tests {
         }
 
         for affix in affixes {
-            assert!(affix.unwrap()._definition.placement == AffixPlacement::Prefix);
+            let definition = affix_database
+                .get_definition_by_id(&affix.unwrap().definition)
+                .unwrap();
+            assert!(definition.placement == AffixPlacement::Prefix);
         }
     }
 }
