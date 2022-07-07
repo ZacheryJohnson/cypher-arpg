@@ -1,2 +1,2 @@
-mod item;
-mod loot;
+pub mod item;
+pub mod loot;

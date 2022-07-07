@@ -2,7 +2,7 @@ use cypher_core::affix::{
     Affix, AffixDefinitionDatabase, AffixDefinitionId, AffixGenerationCriteria,
 };
 use rand::{distributions::WeightedIndex, prelude::*};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 pub type ItemDefinitionId = u64;
@@ -58,11 +58,12 @@ impl Default for ItemDefinitionCriteria {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct ItemDefinition {
     pub id: ItemDefinitionId,
 
     // TODO: remove this
+    #[serde(skip_serializing_if = "Option::is_none")]
     debug_name: Option<String>,
 }
 

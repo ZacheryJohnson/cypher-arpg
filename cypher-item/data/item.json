@@ -1,6 +1,476 @@
 [
-    { "id": 1, "debug_name": "test1" },
-    { "id": 2, "debug_name": "test2" },
-    { "id": 3, "debug_name": "test3" },
-    { "id": 4, "debug_name": "test4" }
+  {
+    "id": 1,
+    "placement": "Suffix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "Resolve",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  },
+  {
+    "id": 2,
+    "placement": "Suffix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "Finesse",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  },
+  {
+    "id": 3,
+    "placement": "Suffix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "Complexity",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  },
+  {
+    "id": 4,
+    "placement": "Prefix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "Health",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  },
+  {
+    "id": 5,
+    "placement": "Prefix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "Energy",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  },
+  {
+    "id": 6,
+    "placement": "Prefix",
+    "tiers": {
+      "1": {
+        "tier": 1,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 1.0,
+            "upper_bound": 3.0
+          }
+        ]
+      },
+      "2": {
+        "tier": 2,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 3.0,
+            "upper_bound": 7.0
+          }
+        ]
+      },
+      "3": {
+        "tier": 3,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 7.0,
+            "upper_bound": 11.0
+          }
+        ]
+      },
+      "4": {
+        "tier": 4,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 11.0,
+            "upper_bound": 15.0
+          }
+        ]
+      },
+      "5": {
+        "tier": 5,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 15.0,
+            "upper_bound": 19.0
+          }
+        ],
+        "item_level_req": 10
+      },
+      "6": {
+        "tier": 6,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 19.0,
+            "upper_bound": 23.0
+          }
+        ],
+        "item_level_req": 30
+      },
+      "7": {
+        "tier": 7,
+        "stats": [
+          {
+            "stat": "MoveSpeed",
+            "lower_bound": 23.0,
+            "upper_bound": 27.0
+          }
+        ],
+        "item_level_req": 50
+      }
+    }
+  }
 ]

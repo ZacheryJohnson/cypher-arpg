@@ -1,9 +1,9 @@
 use std::{collections::HashMap, fmt::Display, ops::Add};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // Stats are any numeric value a player can possess.
-#[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
 pub enum Stat {
     Resolve,
     Finesse,

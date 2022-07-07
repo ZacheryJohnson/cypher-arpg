@@ -6,7 +6,7 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use serde::{
     de::{self, MapAccess, Visitor},
-    Deserialize, Deserializer,
+    Deserialize, Deserializer, Serialize,
 };
 use serde_json::Value;
 
@@ -17,14 +17,15 @@ use crate::item::{
 pub type LootPoolId = u32;
 
 pub struct LootPoolDatabase {
-    pools: HashMap<LootPoolId, LootPool>,
+    pools: HashMap<LootPoolId, LootPoolDefinition>,
 }
 
 impl LootPoolDatabase {
     pub fn initialize() -> LootPoolDatabase {
         let loot_pool_file = include_str!("../data/loot_pool.json");
 
-        let pools_database: Vec<LootPool> = serde_json::de::from_str(loot_pool_file).unwrap();
+        let pools_database: Vec<LootPoolDefinition> =
+            serde_json::de::from_str(loot_pool_file).unwrap();
 
         let pools = pools_database
             .into_iter()
@@ -43,15 +44,15 @@ impl LootPoolDatabase {
 ///
 /// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
-#[derive(Debug)]
-pub struct LootPool {
+#[derive(Debug, Serialize)]
+pub struct LootPoolDefinition {
     id: LootPoolId,
 
     /// All [LootPoolMember]s that can drop as part of this [LootPool].
     members: Vec<LootPoolMember>,
 }
 
-impl<'de> Deserialize<'de> for LootPool {
+impl<'de> Deserialize<'de> for LootPoolDefinition {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -103,17 +104,17 @@ impl<'de> Deserialize<'de> for LootPool {
         struct LootPoolVisitor;
 
         impl<'de> Visitor<'de> for LootPoolVisitor {
-            type Value = LootPool;
+            type Value = LootPoolDefinition;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPool")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<LootPool, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<LootPoolDefinition, V::Error>
             where
                 V: MapAccess<'de>,
             {
-                let mut loot_pool = LootPool {
+                let mut loot_pool = LootPoolDefinition {
                     id: 0,
                     members: Vec::new(),
                 };
@@ -171,7 +172,7 @@ impl<'de> Deserialize<'de> for LootPool {
 #[derive(Default)]
 pub struct LootPoolCriteria {}
 
-impl LootPool {
+impl LootPoolDefinition {
     pub fn generate(
         &self,
         item_database: &ItemDefinitionDatabase,
@@ -198,7 +199,7 @@ impl LootPool {
 ///
 /// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LootPoolMember {
     /// Weight indicates how often this member will be chosen. A higher value = more common.
     weight: u64,

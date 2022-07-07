@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use rand::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::stat::{Stat, StatList, StatModifier};
 
 pub type AffixDefinitionId = u32;
 pub type AffixTierId = u16;
 
-#[derive(Clone, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Deserialize, Debug, PartialEq, Serialize)]
 pub enum AffixPlacement {
     Prefix,
     Suffix,
@@ -120,7 +120,7 @@ impl AffixDefinitionDatabase {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct AffixDefinition {
     /// Opaque ID.
     pub id: AffixDefinitionId,
@@ -152,18 +152,20 @@ impl AffixDefinition {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 pub struct AffixDefinitionTier {
     tier: AffixTierId,
 
     stats: Vec<AffixDefinitionStat>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     item_level_req: Option<u8>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     precision_places: Option<u32>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Serialize)]
 struct AffixDefinitionStat {
     stat: Stat,
 
