@@ -94,7 +94,7 @@ impl DataEditorApp {
 
 impl eframe::App for DataEditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ctx, |_ui| {
             egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.menu_button("File", |ui| self.draw_file_menu_options(ui));

@@ -10,14 +10,12 @@ use serde::{
 };
 use serde_json::Value;
 
-use crate::item::{
-    Item, ItemDefinition, ItemDefinitionCriteria, ItemDefinitionDatabase, ItemDefinitionId,
-};
+use crate::item::{Item, ItemDefinitionCriteria, ItemDefinitionDatabase, ItemDefinitionId};
 
 pub type LootPoolId = u32;
 
 pub struct LootPoolDatabase {
-    pools: HashMap<LootPoolId, LootPoolDefinition>,
+    pub pools: HashMap<LootPoolId, LootPoolDefinition>,
 }
 
 impl LootPoolDatabase {
@@ -57,7 +55,7 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
     where
         D: serde::Deserializer<'de>,
     {
-        const FIELDS: &'static [&'static str] = &["id", "members"];
+        const FIELDS: &[&str] = &["id", "members"];
 
         enum Field {
             Id,
@@ -222,32 +220,9 @@ impl<'de> Deserialize<'de> for LootPoolMember {
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPoolMember")
             }
-
-            fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let member = LootPoolMember {
-                    weight: 0,
-                    item_id: 0,
-                };
-
-                // TODO
-
-                Ok(member)
-            }
         }
 
         deserializer.deserialize_struct("LootPoolMember", &[], LootPoolMemberVisitor)
-    }
-}
-
-impl LootPoolMember {
-    fn new(weight: u64, item: &ItemDefinition) -> LootPoolMember {
-        LootPoolMember {
-            weight,
-            item_id: item.id,
-        }
     }
 }
 

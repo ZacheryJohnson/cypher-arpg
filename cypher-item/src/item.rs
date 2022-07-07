@@ -124,9 +124,9 @@ impl ItemDefinition {
 
 #[derive(Debug)]
 pub struct Item {
-    definition_id: ItemDefinitionId,
+    pub definition_id: ItemDefinitionId,
 
-    affixes: Vec<Affix>,
+    pub affixes: Vec<Affix>,
 }
 
 #[cfg(test)]
@@ -135,6 +135,6 @@ mod tests {
 
     #[test]
     fn init_item_database() {
-        let item_database = ItemDefinitionDatabase::initialize();
+        let _item_database = ItemDefinitionDatabase::initialize();
     }
 }
