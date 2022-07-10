@@ -199,12 +199,12 @@ impl LootPoolDefinition {
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
 #[derive(Debug, Serialize)]
 pub struct LootPoolMember {
-    /// Weight indicates how often this member will be chosen. A higher value = more common.
-    weight: u64,
-
     /// What item will be generated when selected.
     /// The affixes of the item are resolved when generating the item itself, outside of the purview of [LootPool]s.
     item_id: ItemDefinitionId,
+
+    /// Weight indicates how often this member will be chosen. A higher value = more common.
+    weight: u64,
 }
 
 impl<'de> Deserialize<'de> for LootPoolMember {

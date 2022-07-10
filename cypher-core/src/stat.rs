@@ -1,9 +1,10 @@
 use std::{collections::HashMap, fmt::Display, ops::Add};
 
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumIter;
 
 // Stats are any numeric value a player can possess.
-#[derive(Clone, Copy, Debug, Deserialize, Hash, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, EnumIter, Hash, PartialEq, Eq, Serialize)]
 pub enum Stat {
     Resolve,
     Finesse,

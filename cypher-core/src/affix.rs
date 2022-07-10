@@ -10,8 +10,15 @@ pub type AffixTierId = u16;
 
 #[derive(Clone, Deserialize, Debug, PartialEq, Serialize)]
 pub enum AffixPlacement {
+    Invalid,
     Prefix,
     Suffix,
+}
+
+impl std::fmt::Display for AffixPlacement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 fn round_to(num: f32, decimal_places: u32) -> f32 {
@@ -150,28 +157,52 @@ impl AffixDefinition {
 
         tiers
     }
+
+    /// Validates an [AffixDefinition].
+    pub fn validate(&self) -> bool {
+        self.id > 0
+            && self.placement != AffixPlacement::Invalid
+            && !self.tiers.is_empty()
+            && self.tiers.iter().all(|tier| tier.1.validate())
+    }
 }
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct AffixDefinitionTier {
-    tier: AffixTierId,
+    pub tier: AffixTierId,
 
-    stats: Vec<AffixDefinitionStat>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    item_level_req: Option<u8>,
+    pub stats: Vec<AffixDefinitionStat>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    precision_places: Option<u32>,
+    pub item_level_req: Option<u8>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub precision_places: Option<u32>,
+}
+
+impl AffixDefinitionTier {
+    pub fn validate(&self) -> bool {
+        self.tier > 0 && !self.stats.is_empty()
+    }
 }
 
 #[derive(Deserialize, Debug, Serialize)]
-struct AffixDefinitionStat {
-    stat: Stat,
+pub struct AffixDefinitionStat {
+    pub stat: Stat,
 
-    lower_bound: f32,
+    pub lower_bound: f32,
 
-    upper_bound: f32,
+    pub upper_bound: f32,
+}
+
+impl std::fmt::Display for AffixDefinitionStat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?} [{}-{}]",
+            self.stat, self.lower_bound, self.upper_bound
+        )
+    }
 }
 
 #[derive(Debug)]
