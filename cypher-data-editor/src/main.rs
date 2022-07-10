@@ -185,91 +185,92 @@ impl DataEditorApp {
                         });
 
                         for (tier_id, tier_def) in &mut affix.tiers {
-                            ui.label(format!("T{}", tier_id));
-                            // TODO: extract to draw_affix_definition_tier
-                            ui.horizontal(|ui| {
-                                if ui.button("Add Stat").clicked() {
-                                    tier_def.stats.push(AffixDefinitionStat {
-                                        stat: Stat::Resolve, // TODO: invalid?
-                                        lower_bound: 0.,
-                                        upper_bound: 0.,
+                            ui.collapsing(format!("T{}", tier_id), |ui| {
+                                // TODO: extract to draw_affix_definition_tier
+                                ui.horizontal(|ui| {
+                                    if ui.button("Add Stat").clicked() {
+                                        tier_def.stats.push(AffixDefinitionStat {
+                                            stat: Stat::Resolve, // TODO: invalid?
+                                            lower_bound: 0.,
+                                            upper_bound: 0.,
+                                        });
+                                    }
+
+                                    if ui.button("Remove Stat").clicked() {
+                                        tier_def.stats.remove(tier_def.stats.len() - 1);
+                                    }
+                                });
+                                for stat in &mut tier_def.stats {
+                                    let selected_stat = &mut stat.stat;
+                                    egui::ComboBox::from_id_source(format!(
+                                        "Stat_{}-{}",
+                                        stat.lower_bound, stat.upper_bound
+                                    ))
+                                    .selected_text(format!("{:?}", selected_stat))
+                                    .show_ui(ui, |ui| {
+                                        for stat_variant in Stat::iter() {
+                                            ui.selectable_value(
+                                                selected_stat,
+                                                stat_variant,
+                                                format!("{:?}", stat_variant),
+                                            );
+                                        }
+                                    });
+
+                                    ui.horizontal(|ui| {
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut stat.lower_bound,
+                                                (stat.upper_bound - 100_f32)..=stat.upper_bound,
+                                            )
+                                            .text("Lower Bound")
+                                            .fixed_decimals(
+                                                tier_def.precision_places.unwrap_or(0) as usize
+                                            ),
+                                        );
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut stat.upper_bound,
+                                                stat.lower_bound..=(stat.lower_bound + 100_f32),
+                                            )
+                                            .text("Upper Bound")
+                                            .fixed_decimals(
+                                                tier_def.precision_places.unwrap_or(0) as usize
+                                            ),
+                                        );
                                     });
                                 }
-
-                                if ui.button("Remove Stat").clicked() {
-                                    tier_def.stats.remove(tier_def.stats.len() - 1);
-                                }
-                            });
-                            for stat in &mut tier_def.stats {
-                                let selected_stat = &mut stat.stat;
-                                egui::ComboBox::from_id_source(format!(
-                                    "Stat_{}-{}",
-                                    stat.lower_bound, stat.upper_bound
-                                ))
-                                .selected_text(format!("{:?}", selected_stat))
-                                .show_ui(ui, |ui| {
-                                    for stat_variant in Stat::iter() {
-                                        ui.selectable_value(
-                                            selected_stat,
-                                            stat_variant,
-                                            format!("{:?}", stat_variant),
-                                        );
-                                    }
-                                });
-
                                 ui.horizontal(|ui| {
-                                    ui.add(
-                                        egui::Slider::new(
-                                            &mut stat.lower_bound,
-                                            (stat.upper_bound - 100_f32)..=stat.upper_bound,
-                                        )
-                                        .text("Lower Bound")
-                                        .fixed_decimals(
-                                            tier_def.precision_places.unwrap_or(0) as usize,
-                                        ),
-                                    );
-                                    ui.add(
-                                        egui::Slider::new(
-                                            &mut stat.upper_bound,
-                                            stat.lower_bound..=(stat.lower_bound + 100_f32),
-                                        )
-                                        .text("Upper Bound")
-                                        .fixed_decimals(
-                                            tier_def.precision_places.unwrap_or(0) as usize,
-                                        ),
-                                    );
+                                    let mut enabled = tier_def.item_level_req.is_some();
+                                    ui.checkbox(&mut enabled, "Level Req");
+                                    if enabled {
+                                        if tier_def.item_level_req.is_none() {
+                                            tier_def.item_level_req = Some(0);
+                                        }
+                                        let mut val = tier_def.item_level_req.unwrap();
+                                        ui.add(egui::Slider::new(
+                                            &mut val,
+                                            0..=100, // TODO: min + max level definition
+                                        ));
+                                        tier_def.item_level_req = Some(val);
+                                    } else if tier_def.item_level_req.is_some() {
+                                        tier_def.item_level_req = None;
+                                    }
                                 });
-                            }
-                            ui.horizontal(|ui| {
-                                let mut enabled = tier_def.item_level_req.is_some();
-                                ui.checkbox(&mut enabled, "Level Req");
-                                if enabled {
-                                    if tier_def.item_level_req.is_none() {
-                                        tier_def.item_level_req = Some(0);
+                                ui.horizontal(|ui| {
+                                    let mut enabled = tier_def.precision_places.is_some();
+                                    ui.checkbox(&mut enabled, "Float Precision");
+                                    if enabled {
+                                        if tier_def.precision_places.is_none() {
+                                            tier_def.precision_places = Some(0);
+                                        }
+                                        let mut val = tier_def.precision_places.unwrap();
+                                        ui.add(egui::Slider::new(&mut val, 1..=5));
+                                        tier_def.precision_places = Some(val);
+                                    } else if tier_def.precision_places.is_some() {
+                                        tier_def.precision_places = None;
                                     }
-                                    let mut val = tier_def.item_level_req.unwrap();
-                                    ui.add(egui::Slider::new(
-                                        &mut val,
-                                        0..=100, // TODO: min + max level definition
-                                    ));
-                                    tier_def.item_level_req = Some(val);
-                                } else if tier_def.item_level_req.is_some() {
-                                    tier_def.item_level_req = None;
-                                }
-                            });
-                            ui.horizontal(|ui| {
-                                let mut enabled = tier_def.precision_places.is_some();
-                                ui.checkbox(&mut enabled, "Float Precision");
-                                if enabled {
-                                    if tier_def.precision_places.is_none() {
-                                        tier_def.precision_places = Some(0);
-                                    }
-                                    let mut val = tier_def.precision_places.unwrap();
-                                    ui.add(egui::Slider::new(&mut val, 1..=5));
-                                    tier_def.precision_places = Some(val);
-                                } else if tier_def.precision_places.is_some() {
-                                    tier_def.precision_places = None;
-                                }
+                                });
                             });
                         }
                     });
