@@ -12,6 +12,7 @@ use eframe::egui;
 use egui::{Color32, Ui};
 use egui_extras::{Size, TableBuilder};
 
+use serde::Serialize;
 use strum::IntoEnumIterator;
 
 #[derive(PartialEq)]
@@ -59,36 +60,33 @@ impl DataEditorApp {
     /// Writes data files back to the repository.
     fn write_data(&mut self) {
         if !self.validate_data() {
+            println!("Data failed validation - failing the save.");
             return;
         }
 
         println!("Writing data files");
 
-        let root_dir = String::from(project_root::get_project_root().unwrap().to_str().unwrap());
+        fn write_to_file<T>(path: &'static str, data: &T)
+        where
+            T: Serialize,
+        {
+            let root_dir =
+                String::from(project_root::get_project_root().unwrap().to_str().unwrap());
 
-        let mut file_open_options = OpenOptions::new();
-        file_open_options.write(true).append(false).truncate(true);
+            let mut file_open_options = OpenOptions::new();
+            file_open_options.write(true).append(false).truncate(true);
 
-        let affix_file = file_open_options
-            .clone()
-            .open(std::path::Path::new(&root_dir).join("cypher-core/data/affix.json"))
-            .unwrap();
-        let affix_bufwriter = BufWriter::new(affix_file);
-        serde_json::ser::to_writer_pretty(affix_bufwriter, &self.affixes).unwrap();
+            let file = file_open_options
+                .clone()
+                .open(std::path::Path::new(&root_dir).join(path))
+                .unwrap();
+            let bufwriter = BufWriter::new(file);
+            serde_json::ser::to_writer_pretty(bufwriter, data).unwrap();
+        }
 
-        let item_file = file_open_options
-            .clone()
-            .open(std::path::Path::new(&root_dir).join("cypher-item/data/item.json"))
-            .unwrap();
-        let item_bufwriter = BufWriter::new(item_file);
-        serde_json::ser::to_writer_pretty(item_bufwriter, &self.affixes).unwrap();
-
-        let loot_pool_file = file_open_options
-            .clone()
-            .open(std::path::Path::new(&root_dir).join("cypher-item/data/loot_pool.json"))
-            .unwrap();
-        let loot_pool_bufwriter = BufWriter::new(loot_pool_file);
-        serde_json::ser::to_writer_pretty(loot_pool_bufwriter, &self.loot_pools).unwrap();
+        write_to_file("cypher-core/data/affix.json", &self.affixes);
+        write_to_file("cypher-item/data/item.json", &self.items);
+        write_to_file("cypher-item/data/loot_pool.json", &self.loot_pools);
     }
 
     fn draw_file_menu_options(&mut self, ui: &mut Ui) {
@@ -111,6 +109,7 @@ impl DataEditorApp {
                     id: next_id,
                     placement: AffixPlacement::Invalid,
                     tiers: BTreeMap::new(),
+                    name: String::new(),
                 };
 
                 self.affixes.push(new_affix);
@@ -130,31 +129,39 @@ impl DataEditorApp {
                     ui.separator();
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
-                        let affix_idx = self
+                        let affix = self
                             .affixes
-                            .binary_search_by(|probe| {
-                                probe.id.cmp(&self.selected_definition_id.unwrap())
-                            })
+                            .iter_mut()
+                            .find(|def| def.id == self.selected_definition_id.unwrap())
                             .unwrap();
-                        let affix = &mut self.affixes[affix_idx];
+
                         ui.label(format!("Id: {}", affix.id));
+                        ui.horizontal(|ui| {
+                            ui.label("Name");
+                            ui.text_edit_singleline(&mut affix.name);
+                        });
 
-                        let selected_placement = &mut affix.placement;
-                        egui::ComboBox::from_label("Placement")
-                            .selected_text(format!("{:?}", selected_placement))
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    selected_placement,
-                                    AffixPlacement::Prefix,
-                                    "Prefix",
-                                );
-                                ui.selectable_value(
-                                    selected_placement,
-                                    AffixPlacement::Suffix,
-                                    "Suffix",
-                                );
-                            });
+                        ui.horizontal(|ui| {
+                            ui.label("Placement");
 
+                            let selected_placement = &mut affix.placement;
+                            egui::ComboBox::from_id_source("Placement")
+                                .selected_text(format!("{:?}", selected_placement))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        selected_placement,
+                                        AffixPlacement::Prefix,
+                                        "Prefix",
+                                    );
+                                    ui.selectable_value(
+                                        selected_placement,
+                                        AffixPlacement::Suffix,
+                                        "Suffix",
+                                    );
+                                });
+                        });
+
+                        ui.separator();
                         ui.label("Tiers");
 
                         ui.horizontal(|ui| {
@@ -216,25 +223,54 @@ impl DataEditorApp {
                                             &mut stat.lower_bound,
                                             (stat.upper_bound - 100_f32)..=stat.upper_bound,
                                         )
-                                        .text("Lower Bound"),
+                                        .text("Lower Bound")
+                                        .fixed_decimals(
+                                            tier_def.precision_places.unwrap_or(0) as usize,
+                                        ),
                                     );
                                     ui.add(
                                         egui::Slider::new(
                                             &mut stat.upper_bound,
                                             stat.lower_bound..=(stat.lower_bound + 100_f32),
                                         )
-                                        .text("Upper Bound"),
+                                        .text("Upper Bound")
+                                        .fixed_decimals(
+                                            tier_def.precision_places.unwrap_or(0) as usize,
+                                        ),
                                     );
                                 });
                             }
-                            ui.label(format!(
-                                "Level Req: {}",
-                                tier_def.item_level_req.unwrap_or(0)
-                            ));
-                            ui.label(format!(
-                                "Float Precision: {}",
-                                tier_def.precision_places.unwrap_or(0)
-                            ));
+                            ui.horizontal(|ui| {
+                                let mut enabled = tier_def.item_level_req.is_some();
+                                ui.checkbox(&mut enabled, "Level Req");
+                                if enabled {
+                                    if tier_def.item_level_req.is_none() {
+                                        tier_def.item_level_req = Some(0);
+                                    }
+                                    let mut val = tier_def.item_level_req.unwrap();
+                                    ui.add(egui::Slider::new(
+                                        &mut val,
+                                        0..=100, // TODO: min + max level definition
+                                    ));
+                                    tier_def.item_level_req = Some(val);
+                                } else if tier_def.item_level_req.is_some() {
+                                    tier_def.item_level_req = None;
+                                }
+                            });
+                            ui.horizontal(|ui| {
+                                let mut enabled = tier_def.precision_places.is_some();
+                                ui.checkbox(&mut enabled, "Float Precision");
+                                if enabled {
+                                    if tier_def.precision_places.is_none() {
+                                        tier_def.precision_places = Some(0);
+                                    }
+                                    let mut val = tier_def.precision_places.unwrap();
+                                    ui.add(egui::Slider::new(&mut val, 1..=5));
+                                    tier_def.precision_places = Some(val);
+                                } else if tier_def.precision_places.is_some() {
+                                    tier_def.precision_places = None;
+                                }
+                            });
                         }
                     });
                 });
@@ -246,11 +282,15 @@ impl DataEditorApp {
                 .cell_layout(egui::Layout::left_to_right().with_cross_align(egui::Align::Center))
                 .column(Size::initial(60.0).at_least(40.0))
                 .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
                 .column(Size::remainder().at_least(60.0))
                 .resizable(true)
                 .header(20.0, |mut header| {
                     header.col(|ui| {
                         ui.heading("Id");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Name");
                     });
                     header.col(|ui| {
                         ui.heading("Placement");
@@ -281,6 +321,7 @@ impl DataEditorApp {
                             };
 
                         make_col_fn(affix, affix.id.to_string(), &mut row);
+                        make_col_fn(affix, affix.name.clone(), &mut row);
                         make_col_fn(affix, affix.placement.to_string(), &mut row);
                         make_col_fn(affix, affix.tiers.len().to_string(), &mut row);
                     });
@@ -341,5 +382,5 @@ fn main() {
     let mut app = DataEditorApp::default();
     app.load_data();
 
-    eframe::run_native("Data Editor", options, Box::new(|_cc| Box::new(app)));
+    eframe::run_native("Cypher Data Editor", options, Box::new(|_cc| Box::new(app)));
 }

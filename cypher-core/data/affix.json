@@ -76,7 +76,8 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Resolve"
   },
   {
     "id": 2,
@@ -155,7 +156,8 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Finesse"
   },
   {
     "id": 3,
@@ -234,7 +236,8 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Complexity"
   },
   {
     "id": 4,
@@ -313,7 +316,8 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Health"
   },
   {
     "id": 5,
@@ -392,7 +396,8 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Energy"
   },
   {
     "id": 6,
@@ -471,6 +476,7 @@
         ],
         "item_level_req": 50
       }
-    }
+    },
+    "name": "Flat Move Speed"
   }
 ]

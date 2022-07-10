@@ -1,5 +1,6 @@
-use cypher_core::affix::{
-    Affix, AffixDefinitionDatabase, AffixDefinitionId, AffixGenerationCriteria,
+use cypher_core::{
+    affix::{Affix, AffixDefinitionDatabase, AffixDefinitionId, AffixGenerationCriteria},
+    data::DataDefinitionDatabase,
 };
 use rand::{distributions::WeightedIndex, prelude::*};
 use serde::{Deserialize, Serialize};
@@ -11,11 +12,14 @@ pub struct ItemDefinitionDatabase {
     items: HashMap<ItemDefinitionId, ItemDefinition>,
 }
 
-impl ItemDefinitionDatabase {
-    pub fn initialize() -> ItemDefinitionDatabase {
+impl DataDefinitionDatabase for ItemDefinitionDatabase {
+    type DefinitionT = ItemDefinition;
+    type DefinitionId = ItemDefinitionId;
+
+    fn initialize() -> ItemDefinitionDatabase {
         let item_file = include_str!("../data/item.json");
 
-        let definitions: Vec<ItemDefinition> = serde_json::de::from_str(item_file).unwrap();
+        let definitions: Vec<Self::DefinitionT> = serde_json::de::from_str(item_file).unwrap();
 
         let items = definitions
             .into_iter()
@@ -25,15 +29,8 @@ impl ItemDefinitionDatabase {
         ItemDefinitionDatabase { items }
     }
 
-    pub fn get_definition_by_id(&self, id: &ItemDefinitionId) -> Option<&ItemDefinition> {
+    fn get_definition_by_id(&self, id: &Self::DefinitionId) -> Option<&Self::DefinitionT> {
         self.items.get(id)
-    }
-
-    pub fn item_definitions(&self) -> Vec<&ItemDefinition> {
-        self.items
-            .iter()
-            .map(|def| def.1)
-            .collect::<Vec<&ItemDefinition>>()
     }
 }
 

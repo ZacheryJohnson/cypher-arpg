@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cypher_core::affix::AffixDefinitionDatabase;
+use cypher_core::{affix::AffixDefinitionDatabase, data::DataDefinitionDatabase};
 
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
@@ -12,17 +12,20 @@ use serde_json::Value;
 
 use crate::item::{Item, ItemDefinitionCriteria, ItemDefinitionDatabase, ItemDefinitionId};
 
-pub type LootPoolId = u32;
+pub type LootPoolDefinitionId = u32;
 
 pub struct LootPoolDatabase {
-    pub pools: HashMap<LootPoolId, LootPoolDefinition>,
+    pub pools: HashMap<LootPoolDefinitionId, LootPoolDefinition>,
 }
 
-impl LootPoolDatabase {
-    pub fn initialize() -> LootPoolDatabase {
+impl DataDefinitionDatabase for LootPoolDatabase {
+    type DefinitionT = LootPoolDefinition;
+    type DefinitionId = LootPoolDefinitionId;
+
+    fn initialize() -> LootPoolDatabase {
         let loot_pool_file = include_str!("../data/loot_pool.json");
 
-        let pools_database: Vec<LootPoolDefinition> =
+        let pools_database: Vec<Self::DefinitionT> =
             serde_json::de::from_str(loot_pool_file).unwrap();
 
         let pools = pools_database
@@ -31,6 +34,10 @@ impl LootPoolDatabase {
             .collect::<HashMap<_, _>>();
 
         LootPoolDatabase { pools }
+    }
+
+    fn get_definition_by_id(&self, id: &Self::DefinitionId) -> Option<&Self::DefinitionT> {
+        self.pools.get(id)
     }
 }
 
@@ -44,7 +51,7 @@ impl LootPoolDatabase {
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
 #[derive(Debug, Serialize)]
 pub struct LootPoolDefinition {
-    id: LootPoolId,
+    id: LootPoolDefinitionId,
 
     /// All [LootPoolMember]s that can drop as part of this [LootPool].
     members: Vec<LootPoolMember>,
@@ -228,6 +235,8 @@ impl<'de> Deserialize<'de> for LootPoolMember {
 
 #[cfg(test)]
 mod tests {
+    use cypher_core::data::DataDefinitionDatabase;
+
     use super::*;
     use crate::item::ItemDefinitionDatabase;
 

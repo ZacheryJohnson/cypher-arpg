@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::data::DataDefinitionDatabase;
 use crate::stat::{Stat, StatList, StatModifier};
 
 pub type AffixDefinitionId = u32;
@@ -50,11 +51,14 @@ pub struct AffixGenerationCriteria {
     pub item_level: Option<u8>,
 }
 
-impl AffixDefinitionDatabase {
-    pub fn initialize() -> AffixDefinitionDatabase {
+impl DataDefinitionDatabase for AffixDefinitionDatabase {
+    type DefinitionT = AffixDefinition;
+    type DefinitionId = AffixDefinitionId;
+
+    fn initialize() -> Self {
         let affix_file = include_str!("../data/affix.json");
 
-        let definitions: Vec<AffixDefinition> = serde_json::de::from_str(affix_file).unwrap();
+        let definitions: Vec<Self::DefinitionT> = serde_json::de::from_str(affix_file).unwrap();
 
         let affixes = definitions
             .into_iter()
@@ -64,6 +68,12 @@ impl AffixDefinitionDatabase {
         AffixDefinitionDatabase { affixes }
     }
 
+    fn get_definition_by_id(&self, id: &Self::DefinitionId) -> Option<&Self::DefinitionT> {
+        self.affixes.get(id)
+    }
+}
+
+impl AffixDefinitionDatabase {
     /// Generates an [Affix] given a set of criteria. May return `None` if criteria would exclude all loaded [AffixDefinition]s.
     pub fn generate(&self, criteria: &AffixGenerationCriteria) -> Option<Affix> {
         let affix_pool = self
@@ -121,10 +131,6 @@ impl AffixDefinitionDatabase {
             stats: stat_list,
         })
     }
-
-    pub fn get_definition_by_id(&self, id: &AffixDefinitionId) -> Option<&AffixDefinition> {
-        self.affixes.get(id)
-    }
 }
 
 #[derive(Deserialize, Debug, Serialize)]
@@ -135,6 +141,8 @@ pub struct AffixDefinition {
     pub placement: AffixPlacement,
 
     pub tiers: BTreeMap<AffixTierId, AffixDefinitionTier>,
+
+    pub name: String,
 }
 
 impl AffixDefinition {
