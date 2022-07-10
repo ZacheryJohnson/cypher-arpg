@@ -49,7 +49,7 @@ impl StatList {
     }
 
     /// Adds another [StatList] to this one.
-    pub fn add_list(&mut self, list: &StatList) -> &StatList {
+    pub fn add_list(&mut self, list: &StatList) -> &mut StatList {
         for stat_mod in list.mods().iter() {
             self.add_mod(stat_mod);
         }
