@@ -445,6 +445,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
+name = "cypher-character"
+version = "0.1.0"
+dependencies = [
+ "cypher-core",
+ "cypher-item",
+]
+
+[[package]]
 name = "cypher-core"
 version = "0.1.0"
 dependencies = [

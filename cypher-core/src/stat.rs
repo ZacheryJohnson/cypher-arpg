@@ -48,6 +48,15 @@ impl StatList {
         stat_list
     }
 
+    /// Adds another [StatList] to this one.
+    pub fn add_list(&mut self, list: &StatList) -> &StatList {
+        for stat_mod in list.mods().iter() {
+            self.add_mod(stat_mod);
+        }
+
+        self
+    }
+
     /// Adds a [StatModifier] to this [StatList].
     fn add_mod(&mut self, modifier: &StatModifier) -> &mut StatList {
         match self.modifiers.get_mut(&modifier.0) {
@@ -78,18 +87,6 @@ impl StatList {
     /// Gets the modifier value of a [Stat] in a [StatList], if it exists.
     pub fn get_stat(&self, stat: &Stat) -> Option<&f32> {
         self.modifiers.get(stat)
-    }
-}
-
-impl Add for StatList {
-    type Output = Self;
-
-    fn add(mut self, rhs: Self) -> Self::Output {
-        for modifier in rhs.mods() {
-            self.add_mod(&modifier);
-        }
-
-        self
     }
 }
 
@@ -135,10 +132,10 @@ mod tests {
 
     #[test]
     fn add_stat_lists_different_modifiers() {
-        let stat_list_1 = StatList::from(&[StatModifier(Stat::Resolve, 1.)]);
+        let mut stat_list_1 = StatList::from(&[StatModifier(Stat::Resolve, 1.)]);
         let stat_list_2 = StatList::from(&[StatModifier(Stat::Finesse, 1.)]);
 
-        let new_list = stat_list_1 + stat_list_2;
+        let new_list = stat_list_1.add_list(&stat_list_2);
 
         assert_eq!(new_list.mods().len(), 2);
         let resolve_plus_one = StatModifier(Stat::Resolve, 1.);
@@ -149,10 +146,10 @@ mod tests {
 
     #[test]
     fn add_stat_lists_same_modifiers() {
-        let stat_list_1 = StatList::from(&[StatModifier(Stat::Resolve, 1.)]);
+        let mut stat_list_1 = StatList::from(&[StatModifier(Stat::Resolve, 1.)]);
         let stat_list_2 = StatList::from(&[StatModifier(Stat::Resolve, 1.)]);
 
-        let new_list = stat_list_1 + stat_list_2;
+        let new_list = stat_list_1.add_list(&stat_list_2);
 
         assert_eq!(new_list.mods().len(), 1);
         let resolve_plus_two = StatModifier(Stat::Resolve, 2.);

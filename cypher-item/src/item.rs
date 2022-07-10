@@ -55,9 +55,29 @@ impl Default for ItemDefinitionCriteria {
     }
 }
 
+#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq)]
+pub enum ItemClassification {
+    Invalid,
+    Equippable(ItemEquipSlot),
+    Currency,
+}
+
+#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq)]
+pub enum ItemEquipSlot {
+    // These are all WIP! Expect these to change
+    Head,
+    LeftArm,
+    RightArm,
+    Body,
+    Belt,
+    Legs,
+}
+
 #[derive(Deserialize, Debug, Serialize)]
 pub struct ItemDefinition {
     pub id: ItemDefinitionId,
+
+    pub classification: ItemClassification,
 
     // TODO: remove this
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -114,14 +134,21 @@ impl ItemDefinition {
 
         Item {
             definition_id: self.id,
+            classification: self.classification,
             affixes,
         }
+    }
+
+    pub fn validate(&self) -> bool {
+        self.classification != ItemClassification::Invalid
     }
 }
 
 #[derive(Debug)]
 pub struct Item {
     pub definition_id: ItemDefinitionId,
+
+    pub classification: ItemClassification,
 
     pub affixes: Vec<Affix>,
 }

@@ -1,18 +1,22 @@
 [
   {
     "id": 1,
+    "classification": { "Equippable": "Belt" },
     "debug_name": "test1"
   },
   {
     "id": 2,
+    "classification": { "Equippable": "Belt" },
     "debug_name": "test2"
   },
   {
     "id": 3,
+    "classification": { "Equippable": "Belt" },
     "debug_name": "test3"
   },
   {
     "id": 4,
+    "classification": "Currency",
     "debug_name": "test4"
   }
 ]

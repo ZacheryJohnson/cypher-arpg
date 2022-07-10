@@ -2,6 +2,7 @@
 members = [
     "cypher-core",
     "cypher-item",
+    "cypher-character",
 
     "cypher-data-editor"
 ]
