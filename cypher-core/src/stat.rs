@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display};
 
 use serde::{Deserialize, Serialize};
+
 use strum_macros::EnumIter;
 
 // Stats are any numeric value a player can possess.
