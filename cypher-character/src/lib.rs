@@ -63,4 +63,13 @@ mod tests {
 
         assert_eq!(*combined.get_stat(&Stat::Resolve).unwrap(), 2.);
     }
+
+    #[test]
+    fn negative_health_becomes_zero() {
+        let stat_list_1 = StatList::from(&[StatModifier(Stat::Health, -1.)]);
+        let stat_list_2 = StatList::from(&[StatModifier(Stat::Health, -1.)]);
+
+        let character = Character::new(vec![stat_list_1, stat_list_2]);
+        assert_eq!(character.current_health, 0);
+    }
 }
