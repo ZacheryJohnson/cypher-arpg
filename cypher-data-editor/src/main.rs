@@ -1,9 +1,10 @@
 use std::io::BufWriter;
 use std::{collections::BTreeMap, fs::OpenOptions};
 
-use cypher_core::affix::{
-    AffixDefinition, AffixDefinitionStat, AffixDefinitionTier, AffixPlacement,
-};
+use cypher_core::affix::definition::{AffixDefinition, AffixDefinitionStat, AffixDefinitionTier};
+use cypher_core::affix::placement::AffixPlacement;
+use cypher_core::affix::pool::{AffixPoolDefinition, AffixPoolMember};
+use cypher_core::data::DataDefinition;
 use cypher_core::stat::Stat;
 use cypher_item::item::ItemDefinition;
 use cypher_item::loot::LootPoolDefinition;
@@ -15,10 +16,11 @@ use egui_extras::{Size, TableBuilder};
 use serde::Serialize;
 use strum::IntoEnumIterator;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum SelectedEditor {
     NoEditor,
     Affix,
+    AffixPool,
     Item,
     LootPool,
 }
@@ -32,6 +34,7 @@ impl Default for SelectedEditor {
 #[derive(Default)]
 struct DataEditorApp {
     affixes: Vec<AffixDefinition>,
+    affix_pools: Vec<AffixPoolDefinition>,
     items: Vec<ItemDefinition>,
     loot_pools: Vec<LootPoolDefinition>,
     selected_editor: SelectedEditor,
@@ -46,6 +49,9 @@ impl DataEditorApp {
         let affix_data = include_str!("../../cypher-core/data/affix.json");
         self.affixes = serde_json::de::from_str(affix_data).unwrap();
 
+        let affix_pool_data = include_str!("../../cypher-core/data/affix_pool.json");
+        self.affix_pools = serde_json::de::from_str(affix_pool_data).unwrap();
+
         let item_data = include_str!("../../cypher-item/data/item.json");
         self.items = serde_json::de::from_str(item_data).unwrap();
 
@@ -55,6 +61,12 @@ impl DataEditorApp {
 
     fn validate_data(&mut self) -> bool {
         self.affixes.iter().all(|affix| affix.validate())
+            && self
+                .affix_pools
+                .iter()
+                .all(|affix_pool| affix_pool.validate())
+            && self.items.iter().all(|item| item.validate())
+            && self.loot_pools.iter().all(|loot_pool| loot_pool.validate())
     }
 
     /// Writes data files back to the repository.
@@ -85,6 +97,7 @@ impl DataEditorApp {
         }
 
         write_to_file("cypher-core/data/affix.json", &self.affixes);
+        write_to_file("cypher-core/data/affix_pool.json", &self.affix_pools);
         write_to_file("cypher-item/data/item.json", &self.items);
         write_to_file("cypher-item/data/loot_pool.json", &self.loot_pools);
     }
@@ -330,6 +343,136 @@ impl DataEditorApp {
         });
     }
 
+    fn draw_affix_pool_editor(&mut self, ctx: &egui::Context, _ui: &mut Ui) {
+        egui::TopBottomPanel::top("affix_pool_menu_bar").show(ctx, |ui| {
+            if ui.button("Add").clicked() {
+                let next_id = self.affix_pools.last().unwrap().id + 1;
+                let new_affix_pool = AffixPoolDefinition {
+                    id: next_id,
+                    members: vec![],
+                    name: String::default(),
+                };
+
+                self.affix_pools.push(new_affix_pool);
+
+                self.invalidate_selections();
+            }
+        });
+
+        if self.selected_definition_id.is_some() {
+            egui::SidePanel::right("affix_pool_right_panel")
+                .min_width(300.)
+                .show(ctx, |ui| {
+                    {
+                        let mut should_close_sidebar = false;
+                        ui.horizontal(|ui| {
+                            if ui.button("Close").clicked() {
+                                self.invalidate_selections();
+                                should_close_sidebar = true;
+                            }
+                            if ui.button("Delete").clicked() {
+                                if let Ok(idx) = self.affix_pools.binary_search_by(|def| {
+                                    def.id.cmp(&self.selected_definition_id.unwrap())
+                                }) {
+                                    self.affix_pools.remove(idx);
+                                }
+
+                                self.invalidate_selections();
+                                should_close_sidebar = true;
+                            }
+                        });
+
+                        if should_close_sidebar {
+                            return;
+                        }
+                    }
+
+                    ui.separator();
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        let affix_pool = self
+                            .affix_pools
+                            .iter_mut()
+                            .find(|def| def.id == self.selected_definition_id.unwrap())
+                            .unwrap();
+
+                        ui.label(format!("Id: {}", affix_pool.id));
+                        ui.horizontal(|ui| {
+                            ui.label("Name");
+                            ui.text_edit_singleline(&mut affix_pool.name);
+                        });
+
+                        ui.separator();
+                        ui.label("Members");
+                        if ui.button("Add").clicked() {
+                            affix_pool.members.push(AffixPoolMember {
+                                affix_id: 0,
+                                weight: 0,
+                            });
+                        }
+
+                        for member in &mut affix_pool.members {
+                            ui.horizontal(|ui| {
+                                ui.label(format!("Id: {}", member.affix_id));
+                                ui.horizontal(|ui| {
+                                    ui.label("Weight");
+                                    ui.add(egui::DragValue::new(&mut member.weight));
+                                });
+                            });
+                        }
+                    });
+                });
+        }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(egui::Layout::left_to_right().with_cross_align(egui::Align::Center))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::remainder().at_least(60.0))
+                .resizable(true)
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.heading("Id");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Name");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Members");
+                    });
+                })
+                .body(|body| {
+                    body.rows(30., self.affix_pools.len(), |idx, mut row| {
+                        let affix_pool = &self.affix_pools[idx];
+
+                        let mut make_col_fn =
+                            |affix: &AffixPoolDefinition,
+                             text: String,
+                             row: &mut egui_extras::TableRow| {
+                                let x = row.col(|ui| {
+                                    if affix_pool.validate() {
+                                        ui.label(text);
+                                    } else {
+                                        ui.colored_label(Color32::RED, text);
+                                    }
+                                });
+
+                                if x.interact(egui::Sense::click()).clicked() {
+                                    self.selected_definition_id = Some(affix.id);
+                                }
+                            };
+
+                        make_col_fn(affix_pool, affix_pool.id.to_string(), &mut row);
+                        make_col_fn(affix_pool, affix_pool.name.clone(), &mut row);
+                        make_col_fn(affix_pool, affix_pool.members.len().to_string(), &mut row);
+                    });
+                });
+        });
+    }
+
     fn draw_item_editor(&mut self, ui: &mut Ui) {
         for item in &self.items {
             ui.label(format!("{:?}", item));
@@ -354,10 +497,20 @@ impl eframe::App for DataEditorApp {
                 ui.menu_button("File", |ui| self.draw_file_menu_options(ui));
                 ui.separator();
 
-                if ui.button("Affix").clicked() {
-                    self.selected_editor = SelectedEditor::Affix;
-                    self.invalidate_selections();
-                }
+                ui.menu_button("Affix", |ui| {
+                    if ui.button("Definitions").clicked() {
+                        self.selected_editor = SelectedEditor::Affix;
+                        self.invalidate_selections();
+                        ui.close_menu();
+                    }
+
+                    if ui.button("Pools").clicked() {
+                        self.selected_editor = SelectedEditor::AffixPool;
+                        self.invalidate_selections();
+                        ui.close_menu();
+                    }
+                });
+
                 if ui.button("Item").clicked() {
                     self.selected_editor = SelectedEditor::Item;
                     self.invalidate_selections();
@@ -371,6 +524,7 @@ impl eframe::App for DataEditorApp {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.selected_editor {
             SelectedEditor::Affix => self.draw_affix_editor(ctx, ui),
+            SelectedEditor::AffixPool => self.draw_affix_pool_editor(ctx, ui),
             SelectedEditor::Item => self.draw_item_editor(ui),
             SelectedEditor::LootPool => self.draw_loot_pool_editor(ui),
             _ => {}

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use cypher_core::{affix::AffixDefinitionDatabase, data::DataDefinitionDatabase};
+use cypher_core::{
+    affix::{database::AffixDefinitionDatabase, pool::AffixPoolDefinitionDatabase},
+    data::{DataDefinition, DataDefinitionDatabase},
+};
 
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
@@ -18,14 +21,11 @@ pub struct LootPoolDatabase {
     pub pools: HashMap<LootPoolDefinitionId, LootPoolDefinition>,
 }
 
-impl DataDefinitionDatabase for LootPoolDatabase {
-    type DefinitionT = LootPoolDefinition;
-    type DefinitionId = LootPoolDefinitionId;
-
+impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
     fn initialize() -> LootPoolDatabase {
         let loot_pool_file = include_str!("../data/loot_pool.json");
 
-        let pools_database: Vec<Self::DefinitionT> =
+        let pools_database: Vec<LootPoolDefinition> =
             serde_json::de::from_str(loot_pool_file).unwrap();
 
         let pools = pools_database
@@ -36,24 +36,19 @@ impl DataDefinitionDatabase for LootPoolDatabase {
         LootPoolDatabase { pools }
     }
 
-    fn get_definition_by_id(&self, id: &Self::DefinitionId) -> Option<&Self::DefinitionT> {
+    fn get_definition_by_id(&self, id: &LootPoolDefinitionId) -> Option<&LootPoolDefinition> {
         self.pools.get(id)
     }
 }
 
-/// Loot refers to items acquired through random means.
-
-/// A [LootPool] is a collection of [LootPoolMember]s. When generating items from a [LootPool],
+/// A [LootPoolDefinition] is a collection of [LootPoolMember]s. When generating items from a [LootPool],
 /// the item will be chosen from one of the [LootPoolMember]s.
-/// Enemies may have one or more [LootPool]s.
-///
-/// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
-/// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
+/// Enemies may have one or more [LootPoolDefinition]s.
 #[derive(Debug, Serialize)]
 pub struct LootPoolDefinition {
     id: LootPoolDefinitionId,
 
-    /// All [LootPoolMember]s that can drop as part of this [LootPool].
+    /// All [LootPoolMember]s that can drop as part of this [LootPoolDefinition].
     members: Vec<LootPoolMember>,
 }
 
@@ -177,11 +172,20 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
 #[derive(Default)]
 pub struct LootPoolCriteria {}
 
+impl DataDefinition for LootPoolDefinition {
+    type DefinitionTypeId = LootPoolDefinitionId;
+
+    fn validate(&self) -> bool {
+        !self.members.is_empty()
+    }
+}
+
 impl LootPoolDefinition {
     pub fn generate(
         &self,
         item_database: &ItemDefinitionDatabase,
         affix_database: &AffixDefinitionDatabase,
+        affix_pool_database: &AffixPoolDefinitionDatabase,
         _criteria: &LootPoolCriteria,
     ) -> Item {
         let weights = self
@@ -196,7 +200,11 @@ impl LootPoolDefinition {
 
         let definition = item_database.get_definition_by_id(&item_id).unwrap();
 
-        definition.generate(affix_database, &ItemDefinitionCriteria::default())
+        definition.generate(
+            affix_database,
+            affix_pool_database,
+            &ItemDefinitionCriteria::default(),
+        )
     }
 }
 
@@ -241,8 +249,10 @@ mod tests {
     use crate::item::ItemDefinitionDatabase;
 
     #[test]
+    #[ignore] // TODO: restore this test once affix pools are sorted
     fn loot_pool_generation() {
         let affix_database = AffixDefinitionDatabase::initialize();
+        let affix_pool_database = AffixPoolDefinitionDatabase::initialize();
         let item_database = ItemDefinitionDatabase::initialize();
         let loot_pool_database = LootPoolDatabase::initialize();
 
@@ -252,6 +262,7 @@ mod tests {
             let item = loot_pool.generate(
                 &item_database,
                 &affix_database,
+                &affix_pool_database,
                 &LootPoolCriteria::default(),
             );
             println!("{:?}", item);

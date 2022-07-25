@@ -1,0 +1,24 @@
+[
+  {
+    "id": 1,
+    "members": [
+      {
+        "affix_id": 1,
+        "weight": 1
+      },
+      {
+        "affix_id": 2,
+        "weight": 2
+      },
+      {
+        "affix_id": 3,
+        "weight": 3
+      },
+      {
+        "affix_id": 6,
+        "weight": 4
+      }
+    ],
+    "name": "Generic Boots"
+  }
+]

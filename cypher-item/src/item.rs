@@ -1,6 +1,11 @@
 use cypher_core::{
-    affix::{Affix, AffixDefinitionDatabase, AffixDefinitionId, AffixGenerationCriteria},
-    data::DataDefinitionDatabase,
+    affix::{
+        database::AffixDefinitionDatabase,
+        definition::AffixGenerationCriteria,
+        pool::{AffixPoolDefinition, AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
+        Affix,
+    },
+    data::{DataDefinition, DataDefinitionDatabase},
 };
 use rand::{distributions::WeightedIndex, prelude::*};
 use serde::{Deserialize, Serialize};
@@ -12,14 +17,11 @@ pub struct ItemDefinitionDatabase {
     items: HashMap<ItemDefinitionId, ItemDefinition>,
 }
 
-impl DataDefinitionDatabase for ItemDefinitionDatabase {
-    type DefinitionT = ItemDefinition;
-    type DefinitionId = ItemDefinitionId;
-
+impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
     fn initialize() -> ItemDefinitionDatabase {
         let item_file = include_str!("../data/item.json");
 
-        let definitions: Vec<Self::DefinitionT> = serde_json::de::from_str(item_file).unwrap();
+        let definitions: Vec<ItemDefinition> = serde_json::de::from_str(item_file).unwrap();
 
         let items = definitions
             .into_iter()
@@ -29,17 +31,13 @@ impl DataDefinitionDatabase for ItemDefinitionDatabase {
         ItemDefinitionDatabase { items }
     }
 
-    fn get_definition_by_id(&self, id: &Self::DefinitionId) -> Option<&Self::DefinitionT> {
+    fn get_definition_by_id(&self, id: &ItemDefinitionId) -> Option<&ItemDefinition> {
         self.items.get(id)
     }
 }
 
 #[derive(Clone)]
 pub struct ItemDefinitionCriteria {
-    pub allowed_affix_definition_ids: Option<HashSet<AffixDefinitionId>>,
-
-    pub disallowed_affix_definition_ids: Option<HashSet<AffixDefinitionId>>,
-
     /// How many affixes can this item roll? Stored as tuples, where tuple.0 = number of affixes possible, and tuple.1 = affix weight
     pub affix_count_weighting: Vec<(u8 /* count */, u64 /* weight */)>,
 }
@@ -48,9 +46,6 @@ impl Default for ItemDefinitionCriteria {
     fn default() -> Self {
         Self {
             affix_count_weighting: vec![(1, 500), (2, 300), (3, 100), (4, 20), (5, 5), (6, 1)],
-
-            allowed_affix_definition_ids: Default::default(),
-            disallowed_affix_definition_ids: Default::default(),
         }
     }
 }
@@ -71,6 +66,7 @@ pub enum ItemEquipSlot {
     Body,
     Belt,
     Legs,
+    Boots,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
@@ -79,24 +75,30 @@ pub struct ItemDefinition {
 
     pub classification: ItemClassification,
 
-    // TODO: remove this
     #[serde(skip_serializing_if = "Option::is_none")]
-    debug_name: Option<String>,
+    pub affix_pools: Option<Vec<AffixPoolDefinitionId>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+}
+
+impl DataDefinition for ItemDefinition {
+    type DefinitionTypeId = ItemDefinitionId;
+
+    fn validate(&self) -> bool {
+        self.classification != ItemClassification::Invalid
+            && (self.affix_pools.is_none() || !self.affix_pools.as_ref().unwrap().is_empty())
+    }
 }
 
 impl ItemDefinition {
     pub fn generate(
         &self,
         affix_database: &AffixDefinitionDatabase,
+        affix_pool_database: &AffixPoolDefinitionDatabase,
         criteria: &ItemDefinitionCriteria,
     ) -> Item {
-        let mut affix_criteria = AffixGenerationCriteria {
-            allowed_ids: criteria.allowed_affix_definition_ids.clone(),
-            disallowed_ids: criteria.disallowed_affix_definition_ids.clone(),
-            ..Default::default()
-        };
-
-        let mut affixes = vec![];
+        let mut affix_criteria = AffixGenerationCriteria::default();
 
         let distribution = WeightedIndex::new(
             criteria
@@ -107,11 +109,23 @@ impl ItemDefinition {
                 .as_slice(),
         )
         .unwrap();
+
         let mut rng = rand::thread_rng();
         let affix_count = criteria.affix_count_weighting[distribution.sample(&mut rng)].0;
 
+        let mut affix_pool_members = vec![];
+        for pool_id in self.affix_pools.as_ref().unwrap_or(&vec![]) {
+            let affix_pool = affix_pool_database.get_definition_by_id(pool_id).unwrap(); // TODO: remove unwrap
+            for member in &affix_pool.members {
+                affix_pool_members.push(member.to_owned());
+            }
+        }
+
+        let pool = AffixPoolDefinition::from_members(affix_pool_members);
+
+        let mut affixes = vec![];
         for _ in 0..affix_count {
-            let affix = affix_database.generate(&affix_criteria);
+            let affix = pool.generate(affix_database, &affix_criteria);
             if affix.is_none() {
                 continue;
             }
@@ -138,10 +152,6 @@ impl ItemDefinition {
             affixes,
         }
     }
-
-    pub fn validate(&self) -> bool {
-        self.classification != ItemClassification::Invalid
-    }
 }
 
 #[derive(Debug)]
@@ -159,6 +169,27 @@ mod tests {
 
     #[test]
     fn init_item_database() {
-        let _item_database = ItemDefinitionDatabase::initialize();
+        let _ = ItemDefinitionDatabase::initialize();
+    }
+
+    #[test]
+    fn loot_generation() {
+        let item_database = ItemDefinitionDatabase::initialize();
+        let affix_database = AffixDefinitionDatabase::initialize();
+        let affix_pool_database = AffixPoolDefinitionDatabase::initialize();
+
+        let definition = *item_database
+            .items
+            .iter()
+            .map(|item| item.1.to_owned())
+            .collect::<Vec<&ItemDefinition>>()
+            .choose(&mut rand::thread_rng())
+            .unwrap();
+
+        let criteria = ItemDefinitionCriteria::default();
+
+        for _ in 0..10 {
+            let _ = definition.generate(&affix_database, &affix_pool_database, &criteria);
+        }
     }
 }

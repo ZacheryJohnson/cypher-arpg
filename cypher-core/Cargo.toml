@@ -16,7 +16,3 @@ strum_macros = "0.24"
 
 [dev-dependencies]
 criterion = "0.3"
-
-[[bench]]
-name = "affix_generation"
-harness = false
