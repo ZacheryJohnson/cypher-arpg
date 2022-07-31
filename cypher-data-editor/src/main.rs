@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fs::OpenOptions};
 
 use cypher_core::affix::definition::{AffixDefinition, AffixDefinitionStat, AffixDefinitionTier};
 use cypher_core::affix::placement::AffixPlacement;
-use cypher_core::affix::pool::{AffixPoolDefinition, AffixPoolMember};
+use cypher_core::affix::pool::AffixPoolDefinition;
 use cypher_core::data::DataDefinition;
 use cypher_core::stat::Stat;
 use cypher_item::item::ItemDefinition;
@@ -32,16 +32,16 @@ impl Default for SelectedEditor {
 }
 
 #[derive(Default)]
-struct DataEditorApp {
+struct DataEditorApp<'db> {
     affixes: Vec<AffixDefinition>,
-    affix_pools: Vec<AffixPoolDefinition>,
-    items: Vec<ItemDefinition>,
-    loot_pools: Vec<LootPoolDefinition>,
+    affix_pools: Vec<AffixPoolDefinition<'db>>,
+    items: Vec<ItemDefinition<'db>>,
+    loot_pools: Vec<LootPoolDefinition<'db>>,
     selected_editor: SelectedEditor,
     selected_definition_id: Option<u32>,
 }
 
-impl DataEditorApp {
+impl<'db> DataEditorApp<'db> {
     /// Loads data files from the repository.
     fn load_data(&mut self) {
         println!("Loading data files");
@@ -49,8 +49,8 @@ impl DataEditorApp {
         let affix_data = include_str!("../../cypher-core/data/affix.json");
         self.affixes = serde_json::de::from_str(affix_data).unwrap();
 
-        let affix_pool_data = include_str!("../../cypher-core/data/affix_pool.json");
-        self.affix_pools = serde_json::de::from_str(affix_pool_data).unwrap();
+        //let affix_pool_data = include_str!("../../cypher-core/data/affix_pool.json");
+        // self.affix_pools = serde_json::de::from_str(affix_pool_data).unwrap();
 
         let item_data = include_str!("../../cypher-item/data/item.json");
         self.items = serde_json::de::from_str(item_data).unwrap();
@@ -405,15 +405,18 @@ impl DataEditorApp {
                         ui.separator();
                         ui.label("Members");
                         if ui.button("Add").clicked() {
+                            /*
                             affix_pool.members.push(AffixPoolMember {
                                 affix_id: 0,
                                 weight: 0,
                             });
+                            */
+                            todo!("Implement adding new affix pool members")
                         }
 
                         for member in &mut affix_pool.members {
                             ui.horizontal(|ui| {
-                                ui.label(format!("Id: {}", member.affix_id));
+                                ui.label(format!("Id: {}", member.affix_def.id));
                                 ui.horizontal(|ui| {
                                     ui.label("Weight");
                                     ui.add(egui::DragValue::new(&mut member.weight));
@@ -490,7 +493,7 @@ impl DataEditorApp {
     }
 }
 
-impl eframe::App for DataEditorApp {
+impl<'db> eframe::App for DataEditorApp<'db> {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {

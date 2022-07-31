@@ -1,27 +1,41 @@
 use std::collections::HashMap;
 
 use rand::{distributions::WeightedIndex, prelude::*};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeSeed, Serialize};
 
 use crate::data::{DataDefinition, DataDefinitionDatabase};
 
 use super::{
     database::AffixDefinitionDatabase,
-    definition::{AffixDefinitionId, AffixGenerationCriteria},
+    definition::{AffixDefinition, AffixGenerationCriteria},
+    deserializer::AffixPoolDatabaseDeserializer,
     Affix,
 };
 
 pub type AffixPoolDefinitionId = u32;
 
-pub struct AffixPoolDefinitionDatabase {
-    affix_pools: HashMap<AffixPoolDefinitionId, AffixPoolDefinition>,
+pub struct AffixPoolDefinitionDatabase<'db> {
+    affix_pools: HashMap<AffixPoolDefinitionId, AffixPoolDefinition<'db>>,
 }
 
-impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase {
-    fn initialize() -> Self {
-        let affix_file = include_str!("../../data/affix_pool.json");
+impl<'db> DataDefinitionDatabase<'db, AffixPoolDefinition<'db>>
+    for AffixPoolDefinitionDatabase<'db>
+{
+    fn get_definition_by_id(
+        &'db self,
+        id: AffixPoolDefinitionId,
+    ) -> Option<&'db AffixPoolDefinition<'db>> {
+        self.affix_pools.get(&id)
+    }
+}
 
-        let definitions: Vec<AffixPoolDefinition> = serde_json::de::from_str(affix_file).unwrap();
+impl<'db> AffixPoolDefinitionDatabase<'db> {
+    pub fn initialize(affix_db: &'db AffixDefinitionDatabase) -> Self {
+        let affix_file = include_str!("../../data/affix_pool.json");
+        let deserializer = AffixPoolDatabaseDeserializer::new(affix_db);
+        let definitions = deserializer
+            .deserialize(&mut serde_json::Deserializer::from_str(affix_file))
+            .unwrap();
 
         let affix_pools = definitions
             .into_iter()
@@ -30,23 +44,19 @@ impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase
 
         AffixPoolDefinitionDatabase { affix_pools }
     }
-
-    fn get_definition_by_id(&self, id: &AffixPoolDefinitionId) -> Option<&AffixPoolDefinition> {
-        self.affix_pools.get(id)
-    }
 }
 
-#[derive(Clone, Deserialize, Debug, Serialize)]
-pub struct AffixPoolDefinition {
+#[derive(Clone, Debug, Serialize)]
+pub struct AffixPoolDefinition<'db> {
     pub id: AffixPoolDefinitionId,
 
     /// All [AffixPoolMember]s that can roll as part of this [AffixPoolDefinition].
-    pub members: Vec<AffixPoolMember>,
+    pub members: Vec<AffixPoolMember<'db>>,
 
     pub name: String,
 }
 
-impl DataDefinition for AffixPoolDefinition {
+impl<'db> DataDefinition for AffixPoolDefinition<'db> {
     type DefinitionTypeId = AffixPoolDefinitionId;
 
     fn validate(&self) -> bool {
@@ -54,13 +64,13 @@ impl DataDefinition for AffixPoolDefinition {
     }
 }
 
-impl AffixPoolDefinition {
+impl<'db> AffixPoolDefinition<'db> {
     /// Generates an [Affix] given a set of criteria. May return `None` if criteria would exclude all loaded [AffixDefinition]s.
     pub fn generate(
         &self,
-        affix_database: &AffixDefinitionDatabase,
+        affix_database: &'db AffixDefinitionDatabase,
         criteria: &AffixGenerationCriteria,
-    ) -> Option<Affix> {
+    ) -> Option<Affix<'db>> {
         let filtered = self
             .members
             .iter()
@@ -70,7 +80,7 @@ impl AffixPoolDefinition {
                         .allowed_ids
                         .as_ref()
                         .unwrap()
-                        .contains(&affix.affix_id)
+                        .contains(&affix.affix_def.id)
             })
             .filter(|affix| {
                 criteria.disallowed_ids.is_none()
@@ -78,7 +88,7 @@ impl AffixPoolDefinition {
                         .disallowed_ids
                         .as_ref()
                         .unwrap()
-                        .contains(&affix.affix_id)
+                        .contains(&affix.affix_def.id)
             })
             /*
             TODO: support this once members hold references, not just IDs
@@ -95,17 +105,20 @@ impl AffixPoolDefinition {
             .map(|member| member.weight)
             .collect::<Vec<u64>>();
 
-        let distribution = WeightedIndex::new(weights.as_slice()).unwrap();
-        let mut rng = rand::thread_rng();
-        let affix_id = filtered[distribution.sample(&mut rng)].affix_id;
+        if let Ok(distribution) = WeightedIndex::new(weights.as_slice()) {
+            let mut rng = rand::thread_rng();
+            let affix_id = filtered[distribution.sample(&mut rng)].affix_def.id;
 
-        let affix_definition = affix_database.get_definition_by_id(&affix_id).unwrap();
+            let affix_definition = affix_database.get_definition_by_id(affix_id).unwrap();
 
-        affix_definition.generate(criteria)
+            affix_definition.generate(criteria)
+        } else {
+            None
+        }
     }
 
     /// Creates a temporary [AffixPoolDefinition] given existing [AffixPoolMember]s.
-    pub fn from_members(members: Vec<AffixPoolMember>) -> AffixPoolDefinition {
+    pub fn from_members(members: Vec<AffixPoolMember<'db>>) -> AffixPoolDefinition<'db> {
         AffixPoolDefinition {
             id: 0,
             members,
@@ -114,10 +127,10 @@ impl AffixPoolDefinition {
     }
 }
 
-#[derive(Clone, Deserialize, Debug, Serialize)]
-pub struct AffixPoolMember {
+#[derive(Clone, Debug, Serialize)]
+pub struct AffixPoolMember<'db> {
     /// What affix will be generated when selected.
-    pub affix_id: AffixDefinitionId,
+    pub affix_def: &'db AffixDefinition,
 
     /// Weight indicates how often this member will be chosen. A higher value = more common.
     pub weight: u64,
@@ -126,10 +139,11 @@ pub struct AffixPoolMember {
 #[cfg(test)]
 mod tests {
     use super::AffixPoolDefinitionDatabase;
-    use crate::data::DataDefinitionDatabase;
+    use crate::affix::database::AffixDefinitionDatabase;
 
     #[test]
     fn init_affix_pool_database() {
-        let _ = AffixPoolDefinitionDatabase::initialize();
+        let affix_db = AffixDefinitionDatabase::initialize();
+        let _ = AffixPoolDefinitionDatabase::initialize(&affix_db);
     }
 }

@@ -6,14 +6,10 @@ pub trait DataDefinition {
     fn validate(&self) -> bool;
 }
 
-pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
-    /// Initializes the database, loading the data from disk.
-    /// Returns a database.
-    fn initialize() -> Self;
-
+pub trait DataDefinitionDatabase<'db, DataDefinitionType: DataDefinition> {
     /// Returns a data definition given it's ID.
     fn get_definition_by_id(
-        &self,
-        id: &DataDefinitionType::DefinitionTypeId,
-    ) -> Option<&DataDefinitionType>;
+        &'db self,
+        id: DataDefinitionType::DefinitionTypeId,
+    ) -> Option<&'db DataDefinitionType>;
 }

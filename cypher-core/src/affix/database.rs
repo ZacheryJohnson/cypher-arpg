@@ -1,15 +1,17 @@
 use crate::data::DataDefinitionDatabase;
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use super::{definition::AffixDefinition, AffixDefinitionId};
 
 #[derive(Debug)]
-pub struct AffixDefinitionDatabase {
+pub struct AffixDefinitionDatabase<'db> {
     affixes: HashMap<AffixDefinitionId, AffixDefinition>,
+
+    phantom: PhantomData<&'db ()>,
 }
 
-impl DataDefinitionDatabase<AffixDefinition> for AffixDefinitionDatabase {
-    fn initialize() -> Self {
+impl<'db> AffixDefinitionDatabase<'db> {
+    pub fn initialize() -> Self {
         let affix_file = include_str!("../../data/affix.json");
 
         let definitions: Vec<AffixDefinition> = serde_json::de::from_str(affix_file).unwrap();
@@ -19,11 +21,16 @@ impl DataDefinitionDatabase<AffixDefinition> for AffixDefinitionDatabase {
             .map(|affix| (affix.id, affix))
             .collect::<HashMap<_, _>>();
 
-        AffixDefinitionDatabase { affixes }
+        AffixDefinitionDatabase {
+            affixes,
+            phantom: PhantomData,
+        }
     }
+}
 
-    fn get_definition_by_id(&self, id: &AffixDefinitionId) -> Option<&AffixDefinition> {
-        self.affixes.get(id)
+impl<'db> DataDefinitionDatabase<'db, AffixDefinition> for AffixDefinitionDatabase<'db> {
+    fn get_definition_by_id(&'db self, id: AffixDefinitionId) -> Option<&'db AffixDefinition> {
+        self.affixes.get(&id)
     }
 }
 

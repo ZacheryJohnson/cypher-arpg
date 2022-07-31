@@ -85,7 +85,7 @@ impl AffixDefinition {
         let stat_list = StatList::from(stats.as_slice());
 
         Some(Affix {
-            definition: self.id,
+            definition: self,
             tier: tier.tier,
             stats: stat_list,
         })

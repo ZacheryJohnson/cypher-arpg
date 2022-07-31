@@ -3,13 +3,15 @@ pub mod definition;
 pub mod placement;
 pub mod pool;
 
+mod deserializer;
+
 use crate::stat::StatList;
 
-use self::definition::{AffixDefinitionId, AffixTierId};
+use self::definition::{AffixDefinition, AffixDefinitionId, AffixTierId};
 
 #[derive(Debug)]
-pub struct Affix {
-    pub definition: AffixDefinitionId,
+pub struct Affix<'db> {
+    pub definition: &'db AffixDefinition,
 
     pub tier: AffixTierId,
 

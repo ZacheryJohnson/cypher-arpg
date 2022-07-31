@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, marker::PhantomData};
 
 use cypher_core::{
     affix::{database::AffixDefinitionDatabase, pool::AffixPoolDefinitionDatabase},
@@ -13,16 +13,16 @@ use serde::{
 };
 use serde_json::Value;
 
-use crate::item::{Item, ItemDefinitionCriteria, ItemDefinitionDatabase, ItemDefinitionId};
+use crate::item::{Item, ItemDefinition, ItemDefinitionCriteria, ItemDefinitionDatabase};
 
 pub type LootPoolDefinitionId = u32;
 
-pub struct LootPoolDatabase {
-    pub pools: HashMap<LootPoolDefinitionId, LootPoolDefinition>,
+pub struct LootPoolDatabase<'db> {
+    pub pools: HashMap<LootPoolDefinitionId, LootPoolDefinition<'db>>,
 }
 
-impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
-    fn initialize() -> LootPoolDatabase {
+impl<'db> LootPoolDatabase<'db> {
+    pub fn initialize() -> Self {
         let loot_pool_file = include_str!("../data/loot_pool.json");
 
         let pools_database: Vec<LootPoolDefinition> =
@@ -35,9 +35,11 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
 
         LootPoolDatabase { pools }
     }
+}
 
-    fn get_definition_by_id(&self, id: &LootPoolDefinitionId) -> Option<&LootPoolDefinition> {
-        self.pools.get(id)
+impl<'db> DataDefinitionDatabase<'db, LootPoolDefinition<'db>> for LootPoolDatabase<'db> {
+    fn get_definition_by_id(&self, id: LootPoolDefinitionId) -> Option<&LootPoolDefinition> {
+        self.pools.get(&id)
     }
 }
 
@@ -45,14 +47,14 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
 /// the item will be chosen from one of the [LootPoolMember]s.
 /// Enemies may have one or more [LootPoolDefinition]s.
 #[derive(Debug, Serialize)]
-pub struct LootPoolDefinition {
+pub struct LootPoolDefinition<'db> {
     id: LootPoolDefinitionId,
 
     /// All [LootPoolMember]s that can drop as part of this [LootPoolDefinition].
-    members: Vec<LootPoolMember>,
+    members: Vec<LootPoolMember<'db>>,
 }
 
-impl<'de> Deserialize<'de> for LootPoolDefinition {
+impl<'de, 'db> Deserialize<'de> for LootPoolDefinition<'db> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -101,16 +103,18 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
             }
         }
 
-        struct LootPoolVisitor;
+        struct LootPoolVisitor<'db> {
+            phantom: PhantomData<&'db ()>,
+        }
 
-        impl<'de> Visitor<'de> for LootPoolVisitor {
-            type Value = LootPoolDefinition;
+        impl<'de, 'db> Visitor<'de> for LootPoolVisitor<'db> {
+            type Value = LootPoolDefinition<'db>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPool")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<LootPoolDefinition, V::Error>
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
             where
                 V: MapAccess<'de>,
             {
@@ -126,7 +130,9 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
                             // Please, fix this unholy mess
                             let value: Value = map.next_value()?;
                             match value {
-                                Value::Array(values) => {
+                                Value::Array(_values) => {
+                                    panic!("Nice!");
+                                    /*
                                     for val in values {
                                         let mut member = LootPoolMember {
                                             weight: 0,
@@ -154,6 +160,7 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
 
                                         loot_pool.members.push(member);
                                     }
+                                    */
                                 }
                                 _ => panic!("expected array!"),
                             };
@@ -165,14 +172,20 @@ impl<'de> Deserialize<'de> for LootPoolDefinition {
             }
         }
 
-        deserializer.deserialize_struct("LootPool", FIELDS, LootPoolVisitor)
+        deserializer.deserialize_struct(
+            "LootPool",
+            FIELDS,
+            LootPoolVisitor {
+                phantom: PhantomData,
+            },
+        )
     }
 }
 
 #[derive(Default)]
 pub struct LootPoolCriteria {}
 
-impl DataDefinition for LootPoolDefinition {
+impl<'db> DataDefinition for LootPoolDefinition<'db> {
     type DefinitionTypeId = LootPoolDefinitionId;
 
     fn validate(&self) -> bool {
@@ -180,12 +193,12 @@ impl DataDefinition for LootPoolDefinition {
     }
 }
 
-impl LootPoolDefinition {
+impl<'db> LootPoolDefinition<'db> {
     pub fn generate(
         &self,
-        item_database: &ItemDefinitionDatabase,
-        affix_database: &AffixDefinitionDatabase,
-        affix_pool_database: &AffixPoolDefinitionDatabase,
+        item_database: &'db ItemDefinitionDatabase,
+        affix_database: &'db AffixDefinitionDatabase,
+        affix_pool_database: &'db AffixPoolDefinitionDatabase,
         _criteria: &LootPoolCriteria,
     ) -> Item {
         let weights = self
@@ -196,9 +209,9 @@ impl LootPoolDefinition {
 
         let distribution = WeightedIndex::new(weights.as_slice()).unwrap();
         let mut rng = rand::thread_rng();
-        let item_id = self.members[distribution.sample(&mut rng)].item_id;
+        let item_def = self.members[distribution.sample(&mut rng)].item_id;
 
-        let definition = item_database.get_definition_by_id(&item_id).unwrap();
+        let definition = item_database.get_definition_by_id(item_def.id).unwrap();
 
         definition.generate(
             affix_database,
@@ -213,38 +226,44 @@ impl LootPoolDefinition {
 /// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
 #[derive(Debug, Serialize)]
-pub struct LootPoolMember {
+pub struct LootPoolMember<'db> {
     /// What item will be generated when selected.
     /// The affixes of the item are resolved when generating the item itself, outside of the purview of [LootPool]s.
-    item_id: ItemDefinitionId,
+    item_id: &'db ItemDefinition<'db>,
 
     /// Weight indicates how often this member will be chosen. A higher value = more common.
     weight: u64,
 }
 
-impl<'de> Deserialize<'de> for LootPoolMember {
+impl<'de, 'db> Deserialize<'de> for LootPoolMember<'db> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct LootPoolMemberVisitor;
+        struct LootPoolMemberVisitor<'db> {
+            phantom: PhantomData<&'db ()>,
+        }
 
-        impl<'de> Visitor<'de> for LootPoolMemberVisitor {
-            type Value = LootPoolMember;
+        impl<'de, 'db> Visitor<'de> for LootPoolMemberVisitor<'db> {
+            type Value = LootPoolMember<'db>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPoolMember")
             }
         }
 
-        deserializer.deserialize_struct("LootPoolMember", &[], LootPoolMemberVisitor)
+        deserializer.deserialize_struct(
+            "LootPoolMember",
+            &[],
+            LootPoolMemberVisitor {
+                phantom: PhantomData,
+            },
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use cypher_core::data::DataDefinitionDatabase;
-
     use super::*;
     use crate::item::ItemDefinitionDatabase;
 
@@ -252,7 +271,7 @@ mod tests {
     #[ignore] // TODO: restore this test once affix pools are sorted
     fn loot_pool_generation() {
         let affix_database = AffixDefinitionDatabase::initialize();
-        let affix_pool_database = AffixPoolDefinitionDatabase::initialize();
+        let affix_pool_database = AffixPoolDefinitionDatabase::initialize(&affix_database);
         let item_database = ItemDefinitionDatabase::initialize();
         let loot_pool_database = LootPoolDatabase::initialize();
 

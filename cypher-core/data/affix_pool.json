@@ -1,7 +1,8 @@
 [
   {
     "id": 1,
-    "members": [
+    "members": 
+    [
       {
         "affix_id": 1,
         "weight": 1
