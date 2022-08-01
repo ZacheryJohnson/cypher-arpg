@@ -7,6 +7,9 @@ pub trait DataDefinition {
 }
 
 pub trait DataDefinitionDatabase<'db, DataDefinitionType: DataDefinition> {
+    /// Returns whether a database has successfully loaded all data.
+    fn validate(&'db self) -> bool;
+
     /// Returns a data definition given it's ID.
     fn get_definition_by_id(
         &'db self,

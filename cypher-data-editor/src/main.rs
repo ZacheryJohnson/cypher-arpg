@@ -7,7 +7,7 @@ use cypher_core::affix::pool::AffixPoolDefinition;
 use cypher_core::data::DataDefinition;
 use cypher_core::stat::Stat;
 use cypher_item::item::ItemDefinition;
-use cypher_item::loot::LootPoolDefinition;
+use cypher_item::loot_pool::LootPoolDefinition;
 
 use eframe::egui;
 use egui::{Color32, Ui};
@@ -46,17 +46,7 @@ impl<'db> DataEditorApp<'db> {
     fn load_data(&mut self) {
         println!("Loading data files");
 
-        let affix_data = include_str!("../../cypher-core/data/affix.json");
-        self.affixes = serde_json::de::from_str(affix_data).unwrap();
-
-        //let affix_pool_data = include_str!("../../cypher-core/data/affix_pool.json");
-        // self.affix_pools = serde_json::de::from_str(affix_pool_data).unwrap();
-
-        let item_data = include_str!("../../cypher-item/data/item.json");
-        self.items = serde_json::de::from_str(item_data).unwrap();
-
-        let loot_pool_data = include_str!("../../cypher-item/data/loot_pool.json");
-        self.loot_pools = serde_json::de::from_str(loot_pool_data).unwrap();
+        todo!("Initialize databases")
     }
 
     fn validate_data(&mut self) -> bool {

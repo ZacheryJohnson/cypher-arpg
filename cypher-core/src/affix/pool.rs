@@ -21,6 +21,14 @@ pub struct AffixPoolDefinitionDatabase<'db> {
 impl<'db> DataDefinitionDatabase<'db, AffixPoolDefinition<'db>>
     for AffixPoolDefinitionDatabase<'db>
 {
+    fn validate(&'db self) -> bool {
+        !self.affix_pools.is_empty()
+            && self
+                .affix_pools
+                .iter()
+                .all(|(_id, pool_def)| pool_def.validate())
+    }
+
     fn get_definition_by_id(
         &'db self,
         id: AffixPoolDefinitionId,
@@ -90,13 +98,10 @@ impl<'db> AffixPoolDefinition<'db> {
                         .unwrap()
                         .contains(&affix.affix_def.id)
             })
-            /*
-            TODO: support this once members hold references, not just IDs
             .filter(|affix| {
                 criteria.placement.is_none()
-                    || *criteria.placement.as_ref().unwrap() == affix.1.placement
+                    || *criteria.placement.as_ref().unwrap() == affix.affix_def.placement
             })
-            */
             .map(|member| member.to_owned())
             .collect::<Vec<AffixPoolMember>>();
 

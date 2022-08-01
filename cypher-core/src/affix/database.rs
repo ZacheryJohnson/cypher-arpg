@@ -1,4 +1,4 @@
-use crate::data::DataDefinitionDatabase;
+use crate::data::{DataDefinition, DataDefinitionDatabase};
 use std::{collections::HashMap, marker::PhantomData};
 
 use super::{definition::AffixDefinition, AffixDefinitionId};
@@ -29,6 +29,16 @@ impl<'db> AffixDefinitionDatabase<'db> {
 }
 
 impl<'db> DataDefinitionDatabase<'db, AffixDefinition> for AffixDefinitionDatabase<'db> {
+    /// Affixes are entirely self-contained (no references to other data)
+    /// so we only check if there is at least 1 affix and all loaded affixes are valid.
+    fn validate(&'db self) -> bool {
+        !self.affixes.is_empty()
+            && self
+                .affixes
+                .iter()
+                .all(|(_id, affix_def)| affix_def.validate())
+    }
+
     fn get_definition_by_id(&'db self, id: AffixDefinitionId) -> Option<&'db AffixDefinition> {
         self.affixes.get(&id)
     }

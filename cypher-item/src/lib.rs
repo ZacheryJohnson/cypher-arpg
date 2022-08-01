@@ -1,2 +1,2 @@
 pub mod item;
-pub mod loot;
+pub mod loot_pool;
