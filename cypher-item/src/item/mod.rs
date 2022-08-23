@@ -30,14 +30,14 @@ impl Default for ItemDefinitionCriteria {
     }
 }
 
-#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq)]
+#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq, Eq)]
 pub enum ItemClassification {
     Invalid,
     Equippable(ItemEquipSlot),
     Currency,
 }
 
-#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq)]
+#[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq, Eq)]
 pub enum ItemEquipSlot {
     // These are all WIP! Expect these to change
     Head,
