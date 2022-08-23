@@ -5,7 +5,10 @@ use crate::{
 };
 use rand::{prelude::IteratorRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    sync::Arc,
+};
 
 pub type AffixDefinitionId = u32;
 pub type AffixTierId = u16;
@@ -59,8 +62,13 @@ impl AffixDefinition {
         tiers
     }
 
-    pub fn generate(&self, criteria: &AffixGenerationCriteria) -> Option<Affix> {
-        let (_id, tier) = self
+    pub fn generate(
+        definition: Arc<AffixDefinition>,
+        criteria: &AffixGenerationCriteria,
+    ) -> Option<Affix> {
+        let def = definition.clone();
+
+        let (_id, tier) = def
             .tiers
             .iter()
             .filter(|(_id, tier)| {
@@ -85,7 +93,7 @@ impl AffixDefinition {
         let stat_list = StatList::from(stats.as_slice());
 
         Some(Affix {
-            definition: self,
+            definition,
             tier: tier.tier,
             stats: stat_list,
         })

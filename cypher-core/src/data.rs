@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 pub trait DataDefinition {
     type DefinitionTypeId;
 
@@ -6,13 +8,15 @@ pub trait DataDefinition {
     fn validate(&self) -> bool;
 }
 
-pub trait DataDefinitionDatabase<'db, DataDefinitionType: DataDefinition> {
+pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
     /// Returns whether a database has successfully loaded all data.
-    fn validate(&'db self) -> bool;
+    fn validate(&self) -> bool;
 
     /// Returns a data definition given it's ID.
     fn get_definition_by_id(
-        &'db self,
+        &self,
         id: DataDefinitionType::DefinitionTypeId,
-    ) -> Option<&'db DataDefinitionType>;
+    ) -> Option<Arc<DataDefinitionType>>;
+
+    fn definitions(&self) -> Vec<Arc<DataDefinitionType>>;
 }

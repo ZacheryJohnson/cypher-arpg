@@ -32,16 +32,16 @@ impl Default for SelectedEditor {
 }
 
 #[derive(Default)]
-struct DataEditorApp<'db> {
+struct DataEditorApp {
     affixes: Vec<AffixDefinition>,
-    affix_pools: Vec<AffixPoolDefinition<'db>>,
-    items: Vec<ItemDefinition<'db>>,
-    loot_pools: Vec<LootPoolDefinition<'db>>,
+    affix_pools: Vec<AffixPoolDefinition>,
+    items: Vec<ItemDefinition>,
+    loot_pools: Vec<LootPoolDefinition>,
     selected_editor: SelectedEditor,
     selected_definition_id: Option<u32>,
 }
 
-impl<'db> DataEditorApp<'db> {
+impl DataEditorApp {
     /// Loads data files from the repository.
     fn load_data(&mut self) {
         println!("Loading data files");
@@ -404,6 +404,8 @@ impl<'db> DataEditorApp<'db> {
                             todo!("Implement adding new affix pool members")
                         }
 
+                        /*
+                        // TODO: make DragValue work
                         for member in &mut affix_pool.members {
                             ui.horizontal(|ui| {
                                 ui.label(format!("Id: {}", member.affix_def.id));
@@ -413,6 +415,7 @@ impl<'db> DataEditorApp<'db> {
                                 });
                             });
                         }
+                        */
                     });
                 });
         }
@@ -483,7 +486,7 @@ impl<'db> DataEditorApp<'db> {
     }
 }
 
-impl<'db> eframe::App for DataEditorApp<'db> {
+impl eframe::App for DataEditorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top_menu_bar").show(ctx, |ui| {
             ui.horizontal_wrapped(|ui| {

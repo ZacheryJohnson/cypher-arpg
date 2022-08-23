@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use cypher_core::{
     affix::pool::AffixPoolDefinitionDatabase,
@@ -8,12 +8,12 @@ use serde::de::DeserializeSeed;
 
 use super::{deserializer::ItemDefinitionDatabaseDeserializer, ItemDefinition, ItemDefinitionId};
 
-pub struct ItemDefinitionDatabase<'db> {
-    pub(super) items: HashMap<ItemDefinitionId, ItemDefinition<'db>>,
+pub struct ItemDefinitionDatabase {
+    pub(super) items: HashMap<ItemDefinitionId, Arc<ItemDefinition>>,
 }
 
-impl<'db> ItemDefinitionDatabase<'db> {
-    pub fn initialize(affix_pool_db: &'db AffixPoolDefinitionDatabase) -> Self {
+impl ItemDefinitionDatabase {
+    pub fn initialize(affix_pool_db: Arc<AffixPoolDefinitionDatabase>) -> Self {
         let item_file = include_str!("../../data/item.json");
 
         let item_def_deserializer = ItemDefinitionDatabaseDeserializer { affix_pool_db };
@@ -30,12 +30,16 @@ impl<'db> ItemDefinitionDatabase<'db> {
     }
 }
 
-impl<'db> DataDefinitionDatabase<'db, ItemDefinition<'db>> for ItemDefinitionDatabase<'db> {
-    fn validate(&'db self) -> bool {
+impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
+    fn validate(&self) -> bool {
         !self.items.is_empty() && self.items.iter().all(|(_id, item_def)| item_def.validate())
     }
 
-    fn get_definition_by_id(&self, id: ItemDefinitionId) -> Option<&ItemDefinition> {
-        self.items.get(&id)
+    fn get_definition_by_id(&self, id: ItemDefinitionId) -> Option<Arc<ItemDefinition>> {
+        self.items.get(&id).map(|arc| arc.to_owned())
+    }
+
+    fn definitions(&self) -> Vec<Arc<ItemDefinition>> {
+        self.items.iter().map(|(_, def)| def.to_owned()).collect()
     }
 }

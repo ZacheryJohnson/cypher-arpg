@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cypher_core::data::DataDefinitionDatabase;
 use serde::{
     de::{DeserializeSeed, MapAccess, SeqAccess, Visitor},
@@ -8,23 +10,23 @@ use crate::item::{database::ItemDefinitionDatabase, ItemDefinition, ItemDefiniti
 
 use super::{LootPoolDefinition, LootPoolMember};
 
-pub struct LootPoolDatabaseDeserializer<'db> {
-    pub(super) item_db: &'db ItemDefinitionDatabase<'db>,
+pub struct LootPoolDatabaseDeserializer {
+    pub(super) item_db: Arc<ItemDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for LootPoolDatabaseDeserializer<'db> {
-    type Value = Vec<LootPoolDefinition<'db>>;
+impl<'de> DeserializeSeed<'de> for LootPoolDatabaseDeserializer {
+    type Value = Vec<Arc<LootPoolDefinition>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        struct LootPoolDatabaseVisitor<'db> {
-            item_db: &'db ItemDefinitionDatabase<'db>,
+        struct LootPoolDatabaseVisitor {
+            item_db: Arc<ItemDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for LootPoolDatabaseVisitor<'db> {
-            type Value = Vec<LootPoolDefinition<'db>>;
+        impl<'de> Visitor<'de> for LootPoolDatabaseVisitor {
+            type Value = Vec<Arc<LootPoolDefinition>>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct ItemDefinition")
@@ -37,7 +39,7 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolDatabaseDeserializer<'db> {
                 let mut definitions = vec![];
 
                 while let Some(definition) = seq.next_element_seed(LootPoolDeserializer {
-                    item_db: self.item_db,
+                    item_db: self.item_db.clone(),
                 })? {
                     definitions.push(definition);
                 }
@@ -52,12 +54,12 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolDatabaseDeserializer<'db> {
     }
 }
 
-struct LootPoolDeserializer<'db> {
-    item_db: &'db ItemDefinitionDatabase<'db>,
+struct LootPoolDeserializer {
+    item_db: Arc<ItemDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for LootPoolDeserializer<'db> {
-    type Value = LootPoolDefinition<'db>;
+impl<'de> DeserializeSeed<'de> for LootPoolDeserializer {
+    type Value = Arc<LootPoolDefinition>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -107,12 +109,12 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolDeserializer<'db> {
             }
         }
 
-        struct LootPoolVisitor<'db> {
-            item_db: &'db ItemDefinitionDatabase<'db>,
+        struct LootPoolVisitor {
+            item_db: Arc<ItemDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for LootPoolVisitor<'db> {
-            type Value = LootPoolDefinition<'db>;
+        impl<'de> Visitor<'de> for LootPoolVisitor {
+            type Value = Arc<LootPoolDefinition>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPoolDefinition")
@@ -133,13 +135,13 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolDeserializer<'db> {
                         Field::Members => {
                             loot_pool.members =
                                 map.next_value_seed(LootPoolMemberPoolDeserializer {
-                                    item_db: self.item_db,
+                                    item_db: self.item_db.clone(),
                                 })?
                         }
                     };
                 }
 
-                Ok(loot_pool)
+                Ok(Arc::new(loot_pool))
             }
         }
 
@@ -153,23 +155,23 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolDeserializer<'db> {
     }
 }
 
-struct LootPoolMemberPoolDeserializer<'db> {
-    item_db: &'db ItemDefinitionDatabase<'db>,
+struct LootPoolMemberPoolDeserializer {
+    item_db: Arc<ItemDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberPoolDeserializer<'db> {
-    type Value = Vec<LootPoolMember<'db>>;
+impl<'de> DeserializeSeed<'de> for LootPoolMemberPoolDeserializer {
+    type Value = Vec<Arc<LootPoolMember>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct LootPoolMemberPoolVisitor<'db> {
-            item_db: &'db ItemDefinitionDatabase<'db>,
+        struct LootPoolMemberPoolVisitor {
+            item_db: Arc<ItemDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for LootPoolMemberPoolVisitor<'db> {
-            type Value = Vec<LootPoolMember<'db>>;
+        impl<'de> Visitor<'de> for LootPoolMemberPoolVisitor {
+            type Value = Vec<Arc<LootPoolMember>>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPoolMember")
@@ -182,7 +184,7 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberPoolDeserializer<'db> {
                 let mut members = vec![];
 
                 while let Some(member) = seq.next_element_seed(LootPoolMemberDeserializer {
-                    item_db: self.item_db,
+                    item_db: self.item_db.clone(),
                 })? {
                     members.push(member);
                 }
@@ -197,12 +199,12 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberPoolDeserializer<'db> {
     }
 }
 
-struct LootPoolMemberDeserializer<'db> {
-    item_db: &'db ItemDefinitionDatabase<'db>,
+struct LootPoolMemberDeserializer {
+    item_db: Arc<ItemDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberDeserializer<'db> {
-    type Value = LootPoolMember<'db>;
+impl<'de> DeserializeSeed<'de> for LootPoolMemberDeserializer {
+    type Value = Arc<LootPoolMember>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -252,12 +254,12 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberDeserializer<'db> {
             }
         }
 
-        struct LootPoolMemberVisitor<'db> {
-            item_db: &'db ItemDefinitionDatabase<'db>,
+        struct LootPoolMemberVisitor {
+            item_db: Arc<ItemDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for LootPoolMemberVisitor<'db> {
-            type Value = LootPoolMember<'db>;
+        impl<'de> Visitor<'de> for LootPoolMemberVisitor {
+            type Value = Arc<LootPoolMember>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct LootPoolMember")
@@ -267,7 +269,7 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberDeserializer<'db> {
             where
                 V: MapAccess<'de>,
             {
-                let mut item_def: Option<&'db ItemDefinition> = None;
+                let mut item_def: Option<Arc<ItemDefinition>> = None;
                 let mut weight = 0;
 
                 while let Some(key) = map.next_key()? {
@@ -281,10 +283,10 @@ impl<'de, 'db> DeserializeSeed<'de> for LootPoolMemberDeserializer<'db> {
                     };
                 }
 
-                Ok(LootPoolMember {
+                Ok(Arc::new(LootPoolMember {
                     item_def: item_def.unwrap(),
                     weight,
-                })
+                }))
             }
         }
 

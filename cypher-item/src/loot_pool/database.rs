@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use cypher_core::data::{DataDefinition, DataDefinitionDatabase};
 use serde::de::DeserializeSeed;
@@ -7,16 +7,16 @@ use crate::item::database::ItemDefinitionDatabase;
 
 use super::{deserializer::LootPoolDatabaseDeserializer, LootPoolDefinition, LootPoolDefinitionId};
 
-pub struct LootPoolDatabase<'db> {
-    pub(crate) pools: HashMap<LootPoolDefinitionId, LootPoolDefinition<'db>>,
+pub struct LootPoolDatabase {
+    pub(crate) pools: HashMap<LootPoolDefinitionId, Arc<LootPoolDefinition>>,
 }
 
-impl<'db> LootPoolDatabase<'db> {
-    pub fn initialize(item_db: &'db ItemDefinitionDatabase) -> Self {
+impl LootPoolDatabase {
+    pub fn initialize(item_db: Arc<ItemDefinitionDatabase>) -> Self {
         let loot_pool_file = include_str!("../../data/loot_pool.json");
 
         let loot_pool_deserializer = LootPoolDatabaseDeserializer { item_db };
-        let pools_database: Vec<LootPoolDefinition> = loot_pool_deserializer
+        let pools_database: Vec<Arc<LootPoolDefinition>> = loot_pool_deserializer
             .deserialize(&mut serde_json::Deserializer::from_str(loot_pool_file))
             .unwrap();
 
@@ -29,12 +29,15 @@ impl<'db> LootPoolDatabase<'db> {
     }
 }
 
-impl<'db> DataDefinitionDatabase<'db, LootPoolDefinition<'db>> for LootPoolDatabase<'db> {
-    fn validate(&'db self) -> bool {
+impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
+    fn validate(&self) -> bool {
         !self.pools.is_empty() && self.pools.iter().all(|(_id, pool_def)| pool_def.validate())
     }
 
-    fn get_definition_by_id(&self, id: LootPoolDefinitionId) -> Option<&LootPoolDefinition> {
-        self.pools.get(&id)
+    fn get_definition_by_id(&self, id: LootPoolDefinitionId) -> Option<Arc<LootPoolDefinition>> {
+        self.pools.get(&id).map(|arc| arc.to_owned())
+    }
+    fn definitions(&self) -> Vec<Arc<LootPoolDefinition>> {
+        self.pools.iter().map(|(_, def)| def.to_owned()).collect()
     }
 }

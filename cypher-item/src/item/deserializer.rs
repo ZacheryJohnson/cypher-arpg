@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use cypher_core::{
     affix::pool::{AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
     data::DataDefinitionDatabase,
@@ -11,23 +13,23 @@ use crate::item::ItemClassification;
 
 use super::ItemDefinition;
 
-pub struct ItemDefinitionDatabaseDeserializer<'db> {
-    pub(super) affix_pool_db: &'db AffixPoolDefinitionDatabase<'db>,
+pub struct ItemDefinitionDatabaseDeserializer {
+    pub(super) affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer<'db> {
-    type Value = Vec<ItemDefinition<'db>>;
+impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
+    type Value = Vec<Arc<ItemDefinition>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct ItemDefinitionDatabaseVisitor<'db> {
-            affix_pool_db: &'db AffixPoolDefinitionDatabase<'db>,
+        struct ItemDefinitionDatabaseVisitor {
+            affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for ItemDefinitionDatabaseVisitor<'db> {
-            type Value = Vec<ItemDefinition<'db>>;
+        impl<'de> Visitor<'de> for ItemDefinitionDatabaseVisitor {
+            type Value = Vec<Arc<ItemDefinition>>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct ItemDefinitionDatabase")
@@ -40,7 +42,7 @@ impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer<'db> 
                 let mut definitions = vec![];
 
                 while let Some(definition) = seq.next_element_seed(ItemDefinitionDeserializer {
-                    affix_pool_db: self.affix_pool_db,
+                    affix_pool_db: self.affix_pool_db.clone(),
                 })? {
                     definitions.push(definition);
                 }
@@ -55,12 +57,12 @@ impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer<'db> 
     }
 }
 
-struct ItemDefinitionDeserializer<'db> {
-    affix_pool_db: &'db AffixPoolDefinitionDatabase<'db>,
+struct ItemDefinitionDeserializer {
+    affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
 }
 
-impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDeserializer<'db> {
-    type Value = ItemDefinition<'db>;
+impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
+    type Value = Arc<ItemDefinition>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -114,12 +116,12 @@ impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDeserializer<'db> {
             }
         }
 
-        struct ItemDefinitionVisitor<'db> {
-            affix_pool_db: &'db AffixPoolDefinitionDatabase<'db>,
+        struct ItemDefinitionVisitor {
+            affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
         }
 
-        impl<'de, 'db> Visitor<'de> for ItemDefinitionVisitor<'db> {
-            type Value = ItemDefinition<'db>;
+        impl<'de> Visitor<'de> for ItemDefinitionVisitor {
+            type Value = Arc<ItemDefinition>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct ItemDefinition")
@@ -158,7 +160,7 @@ impl<'de, 'db> DeserializeSeed<'de> for ItemDefinitionDeserializer<'db> {
                     };
                 }
 
-                Ok(item_def)
+                Ok(Arc::new(item_def))
             }
         }
 
