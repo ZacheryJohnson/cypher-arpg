@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 cypher-character = { path = "../cypher-character"}
 
-bevy = { version = "0.8", default-features = false }
+[dependencies.bevy]
+workspace = true

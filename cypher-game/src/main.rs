@@ -1,3 +1,6 @@
+// Bevy queries can get very large - allow them
+#![allow(clippy::type_complexity)]
+
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
@@ -8,14 +11,16 @@ use bevy::{
     sprite::collide_aabb::collide,
 };
 use cypher_world::WorldEntity;
+use rand::{seq::SliceRandom, thread_rng};
 
 fn main() {
     App::new()
-        .init_resource::<Settings>()
+        .init_resource::<PlayerSettings>()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
+        .add_startup_system(setup_world)
         .add_system(handle_input)
         .add_system(adjust_camera_for_mouse_position)
         .add_system(update_projectiles)
@@ -39,8 +44,8 @@ struct HitPoints {
     health: f32,
 }
 
-#[derive(Default)]
-struct Settings {
+#[derive(Default, Resource)]
+struct PlayerSettings {
     pub mouse_pan_enabled: bool,
 }
 
@@ -52,54 +57,90 @@ struct Projectile {
     pub team_id: u16,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
 
-    commands
-        .spawn()
-        .insert(WorldEntity)
-        .insert(CameraFollow)
-        .insert(HitPoints { health: 10.0 })
-        .insert(Collider)
-        .insert(Team {
+    commands.spawn((
+        WorldEntity,
+        CameraFollow,
+        HitPoints { health: 10.0 },
+        Collider,
+        Team {
             id: 1,
             debug: String::from("Player"),
-        })
-        .insert_bundle(SpriteBundle {
-            texture: asset_server.load("hell.png"),
+        },
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.0, 1.0, 0.7),
+                custom_size: Some(Vec2 { x: 1., y: 1. }),
+                ..default()
+            },
             transform: Transform {
                 translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),
                 scale: Vec3 {
-                    x: 0.15,
-                    y: 0.15,
+                    x: 15.,
+                    y: 15.,
                     z: 1.0,
                 },
                 ..default()
             },
             ..default()
-        });
+        },
+    ));
 
-    commands
-        .spawn()
-        .insert(HitPoints { health: 10.0 })
-        .insert(Collider)
-        .insert(Team {
+    commands.spawn((
+        HitPoints { health: 10.0 },
+        Collider,
+        Team {
             id: 2,
             debug: String::from("Enemy"),
-        })
-        .insert_bundle(SpriteBundle {
-            texture: asset_server.load("hell.png"),
+        },
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(1.0, 0.0, 0.3),
+                custom_size: Some(Vec2 { x: 1., y: 1. }),
+                ..default()
+            },
             transform: Transform {
                 translation: Vec2 { x: 250.0, y: 250.0 }.extend(0.0),
                 scale: Vec3 {
-                    x: 0.25,
-                    y: 0.25,
+                    x: 45.,
+                    y: 45.,
                     z: 1.0,
                 },
                 ..default()
             },
             ..default()
-        });
+        },
+    ));
+}
+
+fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
+    const TILE_SIZE: i32 = 64;
+    let tile1 = SpriteBundle {
+        texture: asset_server.load("sprite/medievalTile_57.png"),
+        ..default()
+    };
+
+    let tile2 = SpriteBundle {
+        texture: asset_server.load("sprite/medievalTile_58.png"),
+        ..default()
+    };
+
+    let tileset = vec![tile1, tile2];
+
+    for y in -75..75 {
+        for x in -75..75 {
+            let mut tile = tileset.choose(&mut thread_rng()).unwrap().clone();
+            tile.transform.translation = Vec2 {
+                x: (x * TILE_SIZE) as f32,
+                y: (y * TILE_SIZE) as f32,
+            }
+            .extend(-10.0);
+
+            commands.spawn(tile);
+        }
+    }
 }
 
 fn handle_input(
@@ -108,7 +149,8 @@ fn handle_input(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
-    mut settings: ResMut<Settings>,
+    mut settings: ResMut<PlayerSettings>,
+    collidables: Query<&Transform, (With<Collider>, Without<WorldEntity>)>,
 ) {
     let mut player_transform = players.single_mut();
 
@@ -131,6 +173,24 @@ fn handle_input(
         player_transform.translation.x + trans.0,
         player_transform.translation.y + trans.1,
     );
+    for collidable in &collidables {
+        let collision = collide(
+            Vec3 {
+                x: new_transform.0,
+                y: new_transform.1,
+                z: 0.0,
+            },
+            player_transform.scale.truncate(),
+            collidable.translation,
+            collidable.scale.truncate(),
+        );
+
+        if collision.is_some() {
+            // ZJ-TODO: would be nice if being blocked on one axis (eg west) didn't block move on unblocked axis (eg north)
+            return;
+        }
+    }
+
     player_transform.translation.x = new_transform.0;
     player_transform.translation.y = new_transform.1;
 
@@ -140,33 +200,31 @@ fn handle_input(
 
     if mouse_input.just_pressed(MouseButton::Left) {
         // temp: spawn "bullet"
-        commands
-            .spawn()
-            .insert(Projectile {
+        commands.spawn((
+            Projectile {
                 move_speed: 500.0,
                 lifetime: 800.0,
                 damage: 1.0,
                 team_id: 1,
-            })
-            .insert_bundle(SpriteBundle {
+            },
+            SpriteBundle {
                 sprite: Sprite {
                     color: Color::rgb(1.0, 0.2, 0.2),
-                    custom_size: Some(Vec2 { x: 150.0, y: 150.0 }),
+                    custom_size: Some(Vec2 { x: 1., y: 1. }),
                     ..default()
                 },
                 transform: Transform {
-                    translation: player_transform.translation.clone()
-                        - player_transform.local_y() * 25.0,
-                    rotation: player_transform.rotation.clone(),
+                    translation: player_transform.translation - player_transform.local_y() * 25.0,
+                    rotation: player_transform.rotation,
                     scale: Vec3 {
-                        x: 0.05,
-                        y: 0.05,
+                        x: 5.,
+                        y: 5.,
                         z: 1.0,
                     },
-                    ..default()
                 },
                 ..default()
-            });
+            },
+        ));
     }
 }
 
@@ -174,7 +232,7 @@ fn adjust_camera_for_mouse_position(
     mut query: Query<&mut Transform, With<CameraFollow>>,
     mut camera_query: Query<(&Camera, &mut GlobalTransform)>,
     windows: Res<Windows>,
-    settings: Res<Settings>,
+    settings: Res<PlayerSettings>,
 ) {
     if let Ok((camera, mut camera_transform)) = camera_query.get_single_mut() {
         let window = if let RenderTarget::Window(id) = camera.target {
@@ -253,14 +311,14 @@ fn update_projectiles(
                 continue;
             }
 
-            let collision = collide(
+            if collide(
                 projectile_transform.translation,
-                Vec2 { x: 0.05, y: 0.05 },
+                projectile_transform.scale.truncate(),
                 collidable_transform.translation,
-                Vec2 { x: 70.0, y: 70.0 },
-            );
-
-            if let Some(_) = collision {
+                collidable_transform.scale.truncate(),
+            )
+            .is_some()
+            {
                 println!("Collision with {}", team.debug);
                 hit_points.health -= projectile.damage;
                 if hit_points.health <= 0.0 {
