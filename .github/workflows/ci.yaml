@@ -10,7 +10,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install -y librust-alsa-sys-dev
+      - run: sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev librust-alsa-sys-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -41,7 +41,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - run: sudo apt-get install -y librust-alsa-sys-dev
+      - run: sudo apt-get install -y g++ pkg-config libx11-dev libasound2-dev libudev-dev librust-alsa-sys-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
