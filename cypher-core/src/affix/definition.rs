@@ -7,7 +7,7 @@ use rand::{prelude::IteratorRandom, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashSet},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 pub type AffixDefinitionId = u32;
@@ -63,10 +63,10 @@ impl AffixDefinition {
     }
 
     pub fn generate(
-        definition: Arc<AffixDefinition>,
+        definition: Arc<Mutex<AffixDefinition>>,
         criteria: &AffixGenerationCriteria,
     ) -> Option<Affix> {
-        let def = definition.clone();
+        let def = definition.lock().unwrap();
 
         let (_id, tier) = def
             .tiers
@@ -93,7 +93,7 @@ impl AffixDefinition {
         let stat_list = StatList::from(stats.as_slice());
 
         Some(Affix {
-            definition,
+            definition: definition.clone(),
             tier: tier.tier,
             stats: stat_list,
         })

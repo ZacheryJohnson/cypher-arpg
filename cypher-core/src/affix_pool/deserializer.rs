@@ -1,41 +1,43 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{
     de::{DeserializeSeed, MapAccess, SeqAccess, Visitor},
     Deserialize, Deserializer,
 };
 
-use crate::{affix::definition::AffixDefinition, data::DataDefinitionDatabase};
-
-use super::{
-    database::AffixDefinitionDatabase,
-    pool::{AffixPoolDefinition, AffixPoolMember},
+use crate::{
+    affix::database::AffixDefinitionDatabase,
+    affix::definition::{AffixDefinition, AffixDefinitionId},
+    affix_pool::member::AffixPoolMember,
+    data::DataDefinitionDatabase,
 };
+
+use super::definition::AffixPoolDefinition;
 
 /// Deserializes an Affix Pool database.
 pub struct AffixPoolDatabaseDeserializer {
-    affix_db: Arc<AffixDefinitionDatabase>,
+    affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
 }
 
 impl AffixPoolDatabaseDeserializer {
-    pub fn new(affix_db: Arc<AffixDefinitionDatabase>) -> Self {
+    pub fn new(affix_db: Arc<Mutex<AffixDefinitionDatabase>>) -> Self {
         Self { affix_db }
     }
 }
 
 impl<'de> DeserializeSeed<'de> for AffixPoolDatabaseDeserializer {
-    type Value = Vec<Arc<AffixPoolDefinition>>;
+    type Value = Vec<AffixPoolDefinition>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
         struct AffixPoolDatabaseVisitor {
-            affix_db: Arc<AffixDefinitionDatabase>,
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for AffixPoolDatabaseVisitor {
-            type Value = Vec<Arc<AffixPoolDefinition>>;
+            type Value = Vec<AffixPoolDefinition>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("AffixPoolDefinitionDatabase")
@@ -66,11 +68,11 @@ impl<'de> DeserializeSeed<'de> for AffixPoolDatabaseDeserializer {
 }
 
 struct AffixPoolDefinitionDeserializer {
-    affix_db: Arc<AffixDefinitionDatabase>,
+    affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
 }
 
 impl<'de> DeserializeSeed<'de> for AffixPoolDefinitionDeserializer {
-    type Value = Arc<AffixPoolDefinition>;
+    type Value = AffixPoolDefinition;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -123,11 +125,11 @@ impl<'de> DeserializeSeed<'de> for AffixPoolDefinitionDeserializer {
         }
 
         struct AffixPoolDefinitionVisitor {
-            affix_db: Arc<AffixDefinitionDatabase>,
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for AffixPoolDefinitionVisitor {
-            type Value = Arc<AffixPoolDefinition>;
+            type Value = AffixPoolDefinition;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct AffixPoolDefinition")
@@ -156,7 +158,7 @@ impl<'de> DeserializeSeed<'de> for AffixPoolDefinitionDeserializer {
                     };
                 }
 
-                Ok(Arc::new(affix_pool_def))
+                Ok(affix_pool_def)
             }
         }
 
@@ -172,22 +174,22 @@ impl<'de> DeserializeSeed<'de> for AffixPoolDefinitionDeserializer {
 
 /// Deserializes an array of [AffixPoolMember]s. Internal implementation detail
 struct AffixPoolMemberPoolDeserializer {
-    affix_db: Arc<AffixDefinitionDatabase>,
+    affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
 }
 
 impl<'de> DeserializeSeed<'de> for AffixPoolMemberPoolDeserializer {
-    type Value = Vec<Arc<AffixPoolMember>>;
+    type Value = Vec<AffixPoolMember>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
         struct AffixPoolMemberPoolVisitor {
-            affix_db: Arc<AffixDefinitionDatabase>,
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for AffixPoolMemberPoolVisitor {
-            type Value = Vec<Arc<AffixPoolMember>>;
+            type Value = Vec<AffixPoolMember>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct AffixPoolMember")
@@ -217,11 +219,11 @@ impl<'de> DeserializeSeed<'de> for AffixPoolMemberPoolDeserializer {
 
 /// Deserializes an [AffixPoolMember].
 struct AffixPoolMemberDeserializer {
-    affix_db: Arc<AffixDefinitionDatabase>,
+    affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
 }
 
 impl<'de> DeserializeSeed<'de> for AffixPoolMemberDeserializer {
-    type Value = Arc<AffixPoolMember>;
+    type Value = AffixPoolMember;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -272,11 +274,11 @@ impl<'de> DeserializeSeed<'de> for AffixPoolMemberDeserializer {
         }
 
         struct AffixPoolMemberVisitor {
-            affix_db: Arc<AffixDefinitionDatabase>,
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for AffixPoolMemberVisitor {
-            type Value = Arc<AffixPoolMember>;
+            type Value = AffixPoolMember;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct AffixPoolMember")
@@ -286,26 +288,23 @@ impl<'de> DeserializeSeed<'de> for AffixPoolMemberDeserializer {
             where
                 V: MapAccess<'de>,
             {
-                let mut affix_def: Option<Arc<AffixDefinition>> = None;
+                let mut affix_def: Option<Arc<Mutex<AffixDefinition>>> = None;
                 let mut weight = 0;
 
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::AffixId => {
-                            affix_def = Some(
-                                self.affix_db
-                                    .get_definition_by_id(map.next_value::<u32>()?)
-                                    .unwrap(),
-                            )
+                            let affix_id = map.next_value::<AffixDefinitionId>()?;
+                            affix_def = self.affix_db.lock().unwrap().definition(affix_id);
                         }
                         Field::Weight => weight = map.next_value()?,
                     };
                 }
 
-                Ok(Arc::new(AffixPoolMember {
+                Ok(AffixPoolMember {
                     affix_def: affix_def.unwrap(),
                     weight,
-                }))
+                })
             }
         }
 

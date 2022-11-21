@@ -1,13 +1,14 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cypher_core::{
-    affix::{database::AffixDefinitionDatabase, pool::AffixPoolDefinitionDatabase},
+    affix::database::AffixDefinitionDatabase,
+    affix_pool::database::AffixPoolDefinitionDatabase,
     data::{DataDefinition, DataDefinitionDatabase},
 };
 
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use crate::item::{database::ItemDefinitionDatabase, Item, ItemDefinition, ItemDefinitionCriteria};
 
@@ -24,7 +25,7 @@ pub struct LootPoolDefinition {
     id: LootPoolDefinitionId,
 
     /// All [LootPoolMember]s that can drop as part of this [LootPoolDefinition].
-    members: Vec<Arc<LootPoolMember>>,
+    members: Vec<LootPoolMember>,
 }
 
 #[derive(Default)]
@@ -40,13 +41,15 @@ impl DataDefinition for LootPoolDefinition {
 
 impl LootPoolDefinition {
     pub fn generate(
-        definition: Arc<LootPoolDefinition>,
-        item_database: Arc<ItemDefinitionDatabase>,
-        affix_database: Arc<AffixDefinitionDatabase>,
-        affix_pool_database: Arc<AffixPoolDefinitionDatabase>,
+        definition: Arc<Mutex<LootPoolDefinition>>,
+        item_database: Arc<Mutex<ItemDefinitionDatabase>>,
+        affix_database: Arc<Mutex<AffixDefinitionDatabase>>,
+        affix_pool_database: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         _criteria: &LootPoolCriteria,
     ) -> Item {
         let weights = definition
+            .lock()
+            .unwrap()
             .members
             .iter()
             .map(|member| member.weight)
@@ -54,11 +57,13 @@ impl LootPoolDefinition {
 
         let distribution = WeightedIndex::new(weights.as_slice()).unwrap();
         let mut rng = rand::thread_rng();
-        let item_id = definition.members[distribution.sample(&mut rng)]
+        let item_id = definition.lock().unwrap().members[distribution.sample(&mut rng)]
             .item_def
+            .lock()
+            .unwrap()
             .id;
 
-        let definition = item_database.get_definition_by_id(item_id).unwrap();
+        let definition = item_database.lock().unwrap().definition(item_id).unwrap();
 
         ItemDefinition::generate(
             definition,
@@ -75,12 +80,23 @@ impl LootPoolDefinition {
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
 #[derive(Debug, Serialize)]
 pub struct LootPoolMember {
+    #[serde(serialize_with = "serialize_item_def_member")]
     /// What item will be generated when selected.
     /// The affixes of the item are resolved when generating the item itself, outside of the purview of [LootPool]s.
-    item_def: Arc<ItemDefinition>,
+    item_def: Arc<Mutex<ItemDefinition>>,
 
     /// Weight indicates how often this member will be chosen. A higher value = more common.
     weight: u64,
+}
+
+fn serialize_item_def_member<S>(
+    definition: &Arc<Mutex<ItemDefinition>>,
+    s: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_u64(definition.lock().unwrap().id)
 }
 
 #[cfg(test)]
@@ -90,30 +106,35 @@ mod tests {
 
     #[test]
     fn loot_pool_initialize() {
-        let affix_database = Arc::new(AffixDefinitionDatabase::initialize());
-        let affix_pool_database = Arc::new(AffixPoolDefinitionDatabase::initialize(
+        let affix_database = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_database = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
             affix_database.clone(),
-        ));
-        let item_database = Arc::new(ItemDefinitionDatabase::initialize(
+        )));
+        let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
             affix_pool_database.clone(),
-        ));
-        let loot_pool_database = Arc::new(LootPoolDatabase::initialize(item_database.clone()));
+        )));
+        let loot_pool_database = Arc::new(Mutex::new(LootPoolDatabase::initialize(
+            item_database.clone(),
+        )));
 
-        assert!(loot_pool_database.validate())
+        assert!(loot_pool_database.lock().unwrap().validate())
     }
 
     #[test]
     fn loot_pool_generation() {
-        let affix_database = Arc::new(AffixDefinitionDatabase::initialize());
-        let affix_pool_database = Arc::new(AffixPoolDefinitionDatabase::initialize(
+        let affix_database = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_database = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
             affix_database.clone(),
-        ));
-        let item_database = Arc::new(ItemDefinitionDatabase::initialize(
+        )));
+        let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
             affix_pool_database.clone(),
-        ));
-        let loot_pool_database = Arc::new(LootPoolDatabase::initialize(item_database.clone()));
+        )));
+        let loot_pool_database = Arc::new(Mutex::new(LootPoolDatabase::initialize(
+            item_database.clone(),
+        )));
 
-        let definition = loot_pool_database.pools.get(&1).unwrap();
+        let database = loot_pool_database.lock().unwrap();
+        let definition = database.pools.get(&1).unwrap();
 
         for _ in 0..10 {
             let item = LootPoolDefinition::generate(

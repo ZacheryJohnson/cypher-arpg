@@ -1,15 +1,14 @@
 use cypher_core::{
-    affix::{
-        database::AffixDefinitionDatabase,
-        definition::AffixGenerationCriteria,
-        pool::{AffixPoolDefinition, AffixPoolDefinitionDatabase},
-        Affix,
-    },
+    affix::{database::AffixDefinitionDatabase, definition::AffixGenerationCriteria, Affix},
+    affix_pool::{database::AffixPoolDefinitionDatabase, definition::AffixPoolDefinition},
     data::{DataDefinition, DataDefinitionDatabase},
 };
 use rand::{distributions::WeightedIndex, prelude::*};
-use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, sync::Arc};
+use serde::{Deserialize, Serialize, Serializer};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 pub type ItemDefinitionId = u64;
 
@@ -55,9 +54,27 @@ pub struct ItemDefinition {
 
     pub classification: ItemClassification,
 
-    pub affix_pools: Option<Vec<Arc<AffixPoolDefinition>>>,
+    #[serde(serialize_with = "serialize_affix_pools_member")]
+    pub affix_pools: Vec<Arc<Mutex<AffixPoolDefinition>>>,
 
     name: String,
+}
+
+fn serialize_affix_pools_member<S>(
+    pools: &Vec<Arc<Mutex<AffixPoolDefinition>>>,
+    s: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    use serde::ser::SerializeSeq;
+
+    let len = pools.len();
+    let mut seq = s.serialize_seq(if len > 0 { Some(len) } else { None })?;
+    for elem in pools {
+        seq.serialize_element(&elem.lock().unwrap().id)?;
+    }
+    seq.end()
 }
 
 impl DataDefinition for ItemDefinition {
@@ -65,15 +82,14 @@ impl DataDefinition for ItemDefinition {
 
     fn validate(&self) -> bool {
         self.classification != ItemClassification::Invalid
-            && (self.affix_pools.is_none() || !self.affix_pools.as_ref().unwrap().is_empty())
     }
 }
 
 impl ItemDefinition {
     pub fn generate(
-        definition: Arc<ItemDefinition>,
-        affix_database: Arc<AffixDefinitionDatabase>,
-        affix_pool_database: Arc<AffixPoolDefinitionDatabase>,
+        definition: Arc<Mutex<ItemDefinition>>,
+        affix_database: Arc<Mutex<AffixDefinitionDatabase>>,
+        affix_pool_database: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         criteria: &ItemDefinitionCriteria,
     ) -> Item {
         let mut affix_criteria = AffixGenerationCriteria::default();
@@ -93,16 +109,19 @@ impl ItemDefinition {
 
         let mut affix_pool_members = vec![];
 
-        for pool_def in definition.affix_pools.as_ref().unwrap_or(&vec![]) {
+        let pool_definitions = definition.lock().unwrap();
+        for pool_def in pool_definitions.affix_pools.clone() {
             let affix_pool = affix_pool_database
-                .get_definition_by_id(pool_def.id)
+                .lock()
+                .unwrap()
+                .definition(pool_def.lock().unwrap().id)
                 .unwrap(); // TODO: remove unwrap
-            for member in &affix_pool.members {
+            for member in &affix_pool.lock().unwrap().members {
                 affix_pool_members.push(member.to_owned());
             }
         }
 
-        let pool = AffixPoolDefinition::from_members(affix_pool_members);
+        let pool = AffixPoolDefinition::with_members(affix_pool_members);
 
         let mut affixes = vec![];
         for _ in 0..affix_count {
@@ -112,7 +131,9 @@ impl ItemDefinition {
             }
 
             let affix_definition = affix_database
-                .get_definition_by_id(affix.as_ref().unwrap().definition.id)
+                .lock()
+                .unwrap()
+                .definition(affix.as_ref().unwrap().definition.lock().unwrap().id)
                 .unwrap();
             if affix_criteria.disallowed_ids.is_none() {
                 affix_criteria.disallowed_ids = Some(HashSet::new());
@@ -121,14 +142,14 @@ impl ItemDefinition {
                 .disallowed_ids
                 .as_mut()
                 .unwrap()
-                .insert(affix_definition.id);
+                .insert(affix_definition.lock().unwrap().id);
 
             // TODO: handle None
             affixes.push(affix.unwrap());
         }
 
         Item {
-            definition,
+            definition: definition.clone(),
             affixes,
         }
     }
@@ -136,7 +157,7 @@ impl ItemDefinition {
 
 #[derive(Debug)]
 pub struct Item {
-    pub definition: Arc<ItemDefinition>,
+    pub definition: Arc<Mutex<ItemDefinition>>,
 
     pub affixes: Vec<Affix>,
 }
@@ -147,26 +168,30 @@ mod tests {
 
     #[test]
     fn init_item_database() {
-        let affix_db = Arc::new(AffixDefinitionDatabase::initialize());
-        let affix_pool_db = Arc::new(AffixPoolDefinitionDatabase::initialize(affix_db.clone()));
+        let affix_db = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
+            affix_db.clone(),
+        )));
         let _item_db = Arc::new(ItemDefinitionDatabase::initialize(affix_pool_db.clone()));
     }
 
     #[test]
     fn loot_generation() {
-        let affix_database = Arc::new(AffixDefinitionDatabase::initialize());
-        let affix_pool_database = Arc::new(AffixPoolDefinitionDatabase::initialize(
+        let affix_database = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_database = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
             affix_database.clone(),
-        ));
-        let item_database = Arc::new(ItemDefinitionDatabase::initialize(
+        )));
+        let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
             affix_pool_database.clone(),
-        ));
+        )));
 
         let definition = item_database
+            .lock()
+            .unwrap()
             .items
             .iter()
             .map(|item| item.1.to_owned())
-            .collect::<Vec<Arc<ItemDefinition>>>()
+            .collect::<Vec<Arc<Mutex<ItemDefinition>>>>()
             .choose(&mut rand::thread_rng())
             .unwrap()
             .to_owned();

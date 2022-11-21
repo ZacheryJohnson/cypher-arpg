@@ -1398,6 +1398,7 @@ name = "cypher-character"
 version = "0.1.0"
 dependencies = [
  "cypher-core",
+ "cypher-item",
 ]
 
 [[package]]

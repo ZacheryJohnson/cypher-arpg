@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use cypher_core::{
-    affix::pool::{AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
+    affix_pool::database::{AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
     data::DataDefinitionDatabase,
 };
 use serde::{
@@ -14,22 +14,22 @@ use crate::item::ItemClassification;
 use super::ItemDefinition;
 
 pub struct ItemDefinitionDatabaseDeserializer {
-    pub(super) affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
+    pub(super) affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
 }
 
 impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
-    type Value = Vec<Arc<ItemDefinition>>;
+    type Value = Vec<ItemDefinition>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: Deserializer<'de>,
     {
         struct ItemDefinitionDatabaseVisitor {
-            affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
+            affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for ItemDefinitionDatabaseVisitor {
-            type Value = Vec<Arc<ItemDefinition>>;
+            type Value = Vec<ItemDefinition>;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct ItemDefinitionDatabase")
@@ -58,11 +58,11 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
 }
 
 struct ItemDefinitionDeserializer {
-    affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
+    affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
 }
 
 impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
-    type Value = Arc<ItemDefinition>;
+    type Value = ItemDefinition;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -117,11 +117,11 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
         }
 
         struct ItemDefinitionVisitor {
-            affix_pool_db: Arc<AffixPoolDefinitionDatabase>,
+            affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         }
 
         impl<'de> Visitor<'de> for ItemDefinitionVisitor {
-            type Value = Arc<ItemDefinition>;
+            type Value = ItemDefinition;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 formatter.write_str("struct ItemDefinition")
@@ -134,7 +134,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
                 let mut item_def = ItemDefinition {
                     id: 0,
                     classification: ItemClassification::Invalid,
-                    affix_pools: None,
+                    affix_pools: vec![],
                     name: String::new(),
                 };
 
@@ -149,18 +149,20 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
                             for affix_pool_id in affix_pool_ids {
                                 affix_pools.push(
                                     self.affix_pool_db
-                                        .get_definition_by_id(affix_pool_id)
+                                        .lock()
+                                        .unwrap()
+                                        .definition(affix_pool_id)
                                         .unwrap(),
                                 );
                             }
 
-                            item_def.affix_pools = Some(affix_pools);
+                            item_def.affix_pools = affix_pools;
                         }
                         Field::Name => item_def.name = map.next_value()?,
                     };
                 }
 
-                Ok(Arc::new(item_def))
+                Ok(item_def)
             }
         }
 

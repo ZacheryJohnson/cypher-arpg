@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub trait DataDefinition {
     type DefinitionTypeId;
@@ -13,10 +13,10 @@ pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
     fn validate(&self) -> bool;
 
     /// Returns a data definition given it's ID.
-    fn get_definition_by_id(
+    fn definition(
         &self,
         id: DataDefinitionType::DefinitionTypeId,
-    ) -> Option<Arc<DataDefinitionType>>;
+    ) -> Option<Arc<Mutex<DataDefinitionType>>>;
 
-    fn definitions(&self) -> Vec<Arc<DataDefinitionType>>;
+    fn definitions(&self) -> Vec<Arc<Mutex<DataDefinitionType>>>;
 }

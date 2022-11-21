@@ -1,22 +1,36 @@
 use crate::data::{DataDefinition, DataDefinitionDatabase};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use super::{definition::AffixDefinition, AffixDefinitionId};
 
 #[derive(Debug)]
 pub struct AffixDefinitionDatabase {
-    affixes: HashMap<AffixDefinitionId, Arc<AffixDefinition>>,
+    affixes: HashMap<AffixDefinitionId, Arc<Mutex<AffixDefinition>>>,
 }
 
 impl AffixDefinitionDatabase {
     pub fn initialize() -> Self {
-        let affix_file = include_str!("../../data/affix.json");
+        let mut path = std::env::current_dir().unwrap();
+        path.push("..");
+        path.push("cypher-core");
+        path.push("data");
+        path.push("affix.json");
 
-        let definitions: Vec<Arc<AffixDefinition>> = serde_json::de::from_str(affix_file).unwrap();
+        Self::load_from(path.to_str().unwrap())
+    }
+
+    pub fn load_from<S: Into<String>>(path: S) -> Self {
+        let affix_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
+
+        let definitions: Vec<AffixDefinition> =
+            serde_json::de::from_str(affix_file.as_str()).unwrap();
 
         let affixes = definitions
             .into_iter()
-            .map(|affix| (affix.id, affix))
+            .map(|affix| (affix.id, Arc::from(Mutex::new(affix))))
             .collect::<HashMap<_, _>>();
 
         AffixDefinitionDatabase { affixes }
@@ -31,14 +45,14 @@ impl DataDefinitionDatabase<AffixDefinition> for AffixDefinitionDatabase {
             && self
                 .affixes
                 .iter()
-                .all(|(_id, affix_def)| affix_def.validate())
+                .all(|(_id, affix_def)| affix_def.lock().unwrap().validate())
     }
 
-    fn get_definition_by_id(&self, id: AffixDefinitionId) -> Option<Arc<AffixDefinition>> {
+    fn definition(&self, id: AffixDefinitionId) -> Option<Arc<Mutex<AffixDefinition>>> {
         self.affixes.get(&id).map(|arc| arc.to_owned())
     }
 
-    fn definitions(&self) -> Vec<Arc<AffixDefinition>> {
+    fn definitions(&self) -> Vec<Arc<Mutex<AffixDefinition>>> {
         self.affixes.iter().map(|(_, def)| def.to_owned()).collect()
     }
 }
