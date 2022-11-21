@@ -10,7 +10,7 @@ jobs:
     name: Install
     runs-on: ubuntu-latest
     steps: 
-      - run: sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+      - run: sudo apt-get install librust-alsa-sys-dev
   test:
     name: Test
     runs-on: ubuntu-latest
