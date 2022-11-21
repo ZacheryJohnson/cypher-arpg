@@ -9,8 +9,8 @@ jobs:
   install_prereqs:
     name: Install
     runs-on: ubuntu-latest
-    steps:
-      - sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
+    steps: 
+      - run: sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
   test:
     name: Test
     runs-on: ubuntu-latest
