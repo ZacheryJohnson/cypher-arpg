@@ -6,17 +6,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  install_prereqs:
-    name: Install
-    runs-on: ubuntu-latest
-    steps: 
-      - run: sudo apt-get install librust-alsa-sys-dev
   test:
     name: Test
     runs-on: ubuntu-latest
     needs:
       - install_prereqs
     steps:
+      - run: sudo apt-get install -y librust-alsa-sys-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
@@ -51,6 +47,7 @@ jobs:
     needs:
       - install_prereqs
     steps:
+      - run: sudo apt-get install -y librust-alsa-sys-dev
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
