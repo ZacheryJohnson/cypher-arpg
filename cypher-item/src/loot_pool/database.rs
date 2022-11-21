@@ -10,11 +10,11 @@ use crate::item::database::ItemDefinitionDatabase;
 
 use super::{deserializer::LootPoolDatabaseDeserializer, LootPoolDefinition, LootPoolDefinitionId};
 
-pub struct LootPoolDatabase {
+pub struct LootPoolDefinitionDatabase {
     pub(crate) pools: HashMap<LootPoolDefinitionId, Arc<Mutex<LootPoolDefinition>>>,
 }
 
-impl LootPoolDatabase {
+impl LootPoolDefinitionDatabase {
     pub fn initialize(item_db: Arc<Mutex<ItemDefinitionDatabase>>) -> Self {
         let mut path = std::env::current_dir().unwrap();
         path.push("..");
@@ -43,11 +43,11 @@ impl LootPoolDatabase {
             .map(|pool| (pool.id, Arc::new(Mutex::new(pool))))
             .collect::<HashMap<_, _>>();
 
-        LootPoolDatabase { pools }
+        LootPoolDefinitionDatabase { pools }
     }
 }
 
-impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDatabase {
+impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
     fn validate(&self) -> bool {
         !self.pools.is_empty()
             && self

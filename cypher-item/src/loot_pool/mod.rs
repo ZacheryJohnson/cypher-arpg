@@ -101,7 +101,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{database::LootPoolDatabase, *};
+    use super::{database::LootPoolDefinitionDatabase, *};
     use crate::item::database::ItemDefinitionDatabase;
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
             affix_pool_database.clone(),
         )));
-        let loot_pool_database = Arc::new(Mutex::new(LootPoolDatabase::initialize(
+        let loot_pool_database = Arc::new(Mutex::new(LootPoolDefinitionDatabase::initialize(
             item_database.clone(),
         )));
 
@@ -129,7 +129,7 @@ mod tests {
         let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
             affix_pool_database.clone(),
         )));
-        let loot_pool_database = Arc::new(Mutex::new(LootPoolDatabase::initialize(
+        let loot_pool_database = Arc::new(Mutex::new(LootPoolDefinitionDatabase::initialize(
             item_database.clone(),
         )));
 
