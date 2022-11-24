@@ -1,3 +1,4 @@
 /target
-
 /.vscode
+
+cypher-game/assets/game_data/**.json

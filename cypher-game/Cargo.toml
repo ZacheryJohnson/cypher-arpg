@@ -6,6 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cypher-core = { path = "../cypher-core"}
+cypher-item = { path = "../cypher-item"}
 cypher-world = { path = "../cypher-world" }
 
 rand = "0.8.5"
@@ -13,3 +15,4 @@ rand = "0.8.5"
 [dependencies.bevy]
 workspace = true
 features = ["default"]
+

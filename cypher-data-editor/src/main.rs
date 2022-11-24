@@ -1,6 +1,6 @@
-use std::io::BufWriter;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::{collections::BTreeMap, fs::OpenOptions};
 
 use cypher_core::affix::database::AffixDefinitionDatabase;
 use cypher_core::affix::definition::{AffixDefinition, AffixDefinitionStat, AffixDefinitionTier};
@@ -16,8 +16,39 @@ use eframe::egui;
 use egui::{Color32, Ui};
 use egui_extras::{Size, TableBuilder};
 
-use serde::Serialize;
 use strum::IntoEnumIterator;
+
+fn get_affix_db_path() -> PathBuf {
+    let mut path = std::env::current_dir().unwrap();
+    path.push("cypher-core");
+    path.push("data");
+    path.push("affix.json");
+    path
+}
+
+fn get_affix_pool_db_path() -> PathBuf {
+    let mut path = std::env::current_dir().unwrap();
+    path.push("cypher-core");
+    path.push("data");
+    path.push("affix_pool.json");
+    path
+}
+
+fn get_item_db_path() -> PathBuf {
+    let mut path = std::env::current_dir().unwrap();
+    path.push("cypher-item");
+    path.push("data");
+    path.push("item.json");
+    path
+}
+
+fn get_loot_pool_db_path() -> PathBuf {
+    let mut path = std::env::current_dir().unwrap();
+    path.push("cypher-item");
+    path.push("data");
+    path.push("loot_pool.json");
+    path
+}
 
 #[derive(Debug, PartialEq)]
 enum SelectedEditor {
@@ -46,38 +77,24 @@ struct DataEditorApp {
 
 impl DataEditorApp {
     fn new() -> DataEditorApp {
-        let path = std::env::current_dir().unwrap();
-
-        let mut affix_db_path = path.clone();
-        affix_db_path.push("cypher-core");
-        affix_db_path.push("data");
-        affix_db_path.push("affix.json");
+        let affix_db_path = get_affix_db_path();
         let affix_db = Arc::new(Mutex::new(AffixDefinitionDatabase::load_from(
             affix_db_path.to_str().unwrap(),
         )));
 
-        let mut affix_pool_db_path = path.clone();
-        affix_pool_db_path.push("cypher-core");
-        affix_pool_db_path.push("data");
-        affix_pool_db_path.push("affix_pool.json");
+        let affix_pool_db_path = get_affix_pool_db_path();
         let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::load_from(
             affix_db.clone(),
             affix_pool_db_path.to_str().unwrap(),
         )));
 
-        let mut item_db_path = path.clone();
-        item_db_path.push("cypher-item");
-        item_db_path.push("data");
-        item_db_path.push("item.json");
+        let item_db_path = get_item_db_path();
         let item_db = Arc::new(Mutex::new(ItemDefinitionDatabase::load_from(
             affix_pool_db.clone(),
             item_db_path.to_str().unwrap(),
         )));
 
-        let mut loot_pool_db_path = path.clone();
-        loot_pool_db_path.push("cypher-item");
-        loot_pool_db_path.push("data");
-        loot_pool_db_path.push("loot_pool.json");
+        let loot_pool_db_path = get_loot_pool_db_path();
         let loot_pool_db = Arc::new(Mutex::new(LootPoolDefinitionDatabase::load_from(
             item_db.clone(),
             loot_pool_db_path.to_str().unwrap(),
@@ -99,44 +116,14 @@ impl DataEditorApp {
         println!("Loading data files");
     }
 
-    fn validate_data(&mut self) -> bool {
-        // TODO
-        false
-    }
-
     /// Writes data files back to the repository.
     fn write_data(&mut self) {
-        if !self.validate_data() {
-            println!("Data failed validation - failing the save.");
-            return;
-        }
-
         println!("Writing data files");
 
-        fn write_to_file<T>(path: &'static str, data: &T)
-        where
-            T: Serialize,
-        {
-            let root_dir =
-                String::from(project_root::get_project_root().unwrap().to_str().unwrap());
-
-            let mut file_open_options = OpenOptions::new();
-            file_open_options.write(true).append(false).truncate(true);
-
-            let file = file_open_options
-                .clone()
-                .open(std::path::Path::new(&root_dir).join(path))
-                .unwrap();
-            let bufwriter = BufWriter::new(file);
-            serde_json::ser::to_writer_pretty(bufwriter, data).unwrap();
-        }
-
-        /*
-        write_to_file("cypher-core/data/affix.json", &self.affixes);
-        write_to_file("cypher-core/data/affix_pool.json", &self.affix_pools);
-        write_to_file("cypher-item/data/item.json", &self.items);
-        write_to_file("cypher-item/data/loot_pool.json", &self.loot_pools);
-        */
+        // self.affix_db.lock().unwrap().write_to(get_affix_db_path());
+        // self.affix_pool_db.lock().unwrap().write_to(get_affix_pool_db_path());
+        // self.item_db.lock().unwrap().write_to(get_item_db_path());
+        // self.loot_pool_db.lock().unwrap().write_to(get_loot_pool_db_path());
     }
 
     fn draw_file_menu_options(&mut self, ui: &mut Ui) {

@@ -10,12 +10,17 @@ use bevy::{
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
+use cypher_core::data::DataDefinitionDatabase;
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};
+
+pub mod data_manager;
+use data_manager::DataManager;
 
 fn main() {
     App::new()
         .init_resource::<PlayerSettings>()
+        .init_resource::<DataManager>()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -293,6 +298,7 @@ fn update_projectiles(
         (With<Collider>, Without<Projectile>),
     >,
     time: Res<Time>,
+    data_manager: Res<DataManager>,
 ) {
     for (mut projectile_transform, mut projectile, entity) in &mut projectiles {
         let forward = -projectile_transform.local_y();
@@ -323,6 +329,10 @@ fn update_projectiles(
                 hit_points.health -= projectile.damage;
                 if hit_points.health <= 0.0 {
                     commands.entity(collider_entity).despawn();
+
+                    // eventually do something with this
+                    let x = data_manager.item_db.lock().unwrap();
+                    println!("{}", x.definitions().first().unwrap().lock().unwrap().id);
                 }
 
                 commands.entity(entity).despawn();
