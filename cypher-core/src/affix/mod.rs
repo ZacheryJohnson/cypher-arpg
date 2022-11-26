@@ -2,7 +2,10 @@ pub mod database;
 pub mod definition;
 pub mod placement;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
 
 use crate::stat::StatList;
 
@@ -15,4 +18,16 @@ pub struct Affix {
     pub tier: AffixTierId,
 
     pub stats: StatList,
+}
+
+impl Display for Affix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "T{} {}: {}",
+            self.tier,
+            self.definition.lock().unwrap().name,
+            self.stats
+        )
+    }
 }

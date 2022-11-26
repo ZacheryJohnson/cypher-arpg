@@ -1,19 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use cypher_core::{
-    affix::database::AffixDefinitionDatabase,
-    affix_pool::database::AffixPoolDefinitionDatabase,
-    data::{DataDefinition, DataDefinitionDatabase},
-};
-
-use rand::distributions::WeightedIndex;
-use rand::prelude::*;
+use cypher_core::data::DataDefinition;
 use serde::{Serialize, Serializer};
 
-use crate::item::{database::ItemDefinitionDatabase, Item, ItemDefinition, ItemDefinitionCriteria};
+use crate::item::ItemDefinition;
 
 pub mod database;
 pub mod deserializer;
+pub mod generator;
 
 pub type LootPoolDefinitionId = u32;
 
@@ -28,49 +22,11 @@ pub struct LootPoolDefinition {
     members: Vec<LootPoolMember>,
 }
 
-#[derive(Default)]
-pub struct LootPoolCriteria {}
-
 impl DataDefinition for LootPoolDefinition {
     type DefinitionTypeId = LootPoolDefinitionId;
 
     fn validate(&self) -> bool {
         !self.members.is_empty()
-    }
-}
-
-impl LootPoolDefinition {
-    pub fn generate(
-        definition: Arc<Mutex<LootPoolDefinition>>,
-        item_database: Arc<Mutex<ItemDefinitionDatabase>>,
-        affix_database: Arc<Mutex<AffixDefinitionDatabase>>,
-        affix_pool_database: Arc<Mutex<AffixPoolDefinitionDatabase>>,
-        _criteria: &LootPoolCriteria,
-    ) -> Item {
-        let weights = definition
-            .lock()
-            .unwrap()
-            .members
-            .iter()
-            .map(|member| member.weight)
-            .collect::<Vec<u64>>();
-
-        let distribution = WeightedIndex::new(weights.as_slice()).unwrap();
-        let mut rng = rand::thread_rng();
-        let item_id = definition.lock().unwrap().members[distribution.sample(&mut rng)]
-            .item_def
-            .lock()
-            .unwrap()
-            .id;
-
-        let definition = item_database.lock().unwrap().definition(item_id).unwrap();
-
-        ItemDefinition::generate(
-            definition,
-            affix_database,
-            affix_pool_database,
-            &ItemDefinitionCriteria::default(),
-        )
     }
 }
 
@@ -101,7 +57,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{database::LootPoolDefinitionDatabase, *};
+    use std::sync::{Arc, Mutex};
+
+    use cypher_core::{
+        affix::database::AffixDefinitionDatabase,
+        affix_pool::database::AffixPoolDefinitionDatabase, data::DataDefinitionDatabase,
+    };
+
+    use super::database::LootPoolDefinitionDatabase;
     use crate::item::database::ItemDefinitionDatabase;
 
     #[test]
@@ -118,33 +81,5 @@ mod tests {
         )));
 
         assert!(loot_pool_database.lock().unwrap().validate())
-    }
-
-    #[test]
-    fn loot_pool_generation() {
-        let affix_database = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
-        let affix_pool_database = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
-            affix_database.clone(),
-        )));
-        let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
-            affix_pool_database.clone(),
-        )));
-        let loot_pool_database = Arc::new(Mutex::new(LootPoolDefinitionDatabase::initialize(
-            item_database.clone(),
-        )));
-
-        let database = loot_pool_database.lock().unwrap();
-        let definition = database.pools.get(&1).unwrap();
-
-        for _ in 0..10 {
-            let item = LootPoolDefinition::generate(
-                definition.to_owned(),
-                item_database.clone(),
-                affix_database.clone(),
-                affix_pool_database.clone(),
-                &LootPoolCriteria::default(),
-            );
-            println!("{:?}", item);
-        }
     }
 }

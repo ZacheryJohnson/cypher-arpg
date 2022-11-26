@@ -91,6 +91,22 @@ impl StatList {
     }
 }
 
+impl Display for StatList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut buffer = String::new();
+        for stat in &self.modifiers {
+            buffer += format!(
+                "{}{} {:?}",
+                if stat.1 < &0. { "-" } else { "+" },
+                stat.1,
+                stat.0
+            )
+            .as_str();
+        }
+        write!(f, "{}", buffer.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -16,3 +16,6 @@ strum_macros = "0.24"
 
 [dev-dependencies]
 criterion = "0.3"
+
+[dependencies.bevy]
+workspace = true

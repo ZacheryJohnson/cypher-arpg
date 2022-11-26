@@ -20,3 +20,19 @@ pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
 
     fn definitions(&self) -> Vec<Arc<Mutex<DataDefinitionType>>>;
 }
+
+pub trait DataInstanceGenerator<
+    DataDefinitionType: DataDefinition,
+    DataInstanceType,
+    GeneratorCriteriaType,
+>
+{
+    type DataDependencies;
+
+    fn generate(
+        &self,
+        definition: Arc<Mutex<DataDefinitionType>>,
+        criteria: &GeneratorCriteriaType,
+        databases: &Self::DataDependencies,
+    ) -> DataInstanceType;
+}

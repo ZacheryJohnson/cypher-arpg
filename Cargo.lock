@@ -1405,6 +1405,7 @@ dependencies = [
 name = "cypher-core"
 version = "0.1.0"
 dependencies = [
+ "bevy",
  "criterion",
  "rand",
  "serde",

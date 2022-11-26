@@ -1,7 +1,10 @@
 // Bevy queries can get very large - allow them
 #![allow(clippy::type_complexity)]
 
-use std::f32::consts::FRAC_PI_2;
+use std::{
+    f32::consts::FRAC_PI_2,
+    sync::{Arc, Mutex},
+};
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -10,7 +13,11 @@ use bevy::{
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
-use cypher_core::data::DataDefinitionDatabase;
+use cypher_core::data::{DataDefinitionDatabase, DataInstanceGenerator};
+use cypher_item::loot_pool::{
+    generator::{LootPoolCriteria, LootPoolItemGenerator},
+    LootPoolDefinition,
+};
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -21,6 +28,7 @@ fn main() {
     App::new()
         .init_resource::<PlayerSettings>()
         .init_resource::<DataManager>()
+        .init_resource::<GameState>()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -41,7 +49,6 @@ struct Collider;
 #[derive(Component)]
 struct Team {
     pub id: u16,
-    pub debug: String,
 }
 
 #[derive(Component)]
@@ -62,7 +69,26 @@ struct Projectile {
     pub team_id: u16,
 }
 
-fn setup(mut commands: Commands) {
+#[derive(Component)]
+struct LootPoolDropper {
+    // change this name pls
+    pub loot_pool_def: Arc<Mutex<LootPoolDefinition>>,
+}
+
+#[derive(Resource)]
+struct GameState {
+    pub loot_pool_generator: LootPoolItemGenerator,
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self {
+            loot_pool_generator: LootPoolItemGenerator,
+        }
+    }
+}
+
+fn setup(mut commands: Commands, data_manager: Res<DataManager>) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
@@ -70,10 +96,7 @@ fn setup(mut commands: Commands) {
         CameraFollow,
         HitPoints { health: 10.0 },
         Collider,
-        Team {
-            id: 1,
-            debug: String::from("Player"),
-        },
+        Team { id: 1 },
         SpriteBundle {
             sprite: Sprite {
                 color: Color::rgb(0.0, 1.0, 0.7),
@@ -96,9 +119,14 @@ fn setup(mut commands: Commands) {
     commands.spawn((
         HitPoints { health: 10.0 },
         Collider,
-        Team {
-            id: 2,
-            debug: String::from("Enemy"),
+        Team { id: 2 },
+        LootPoolDropper {
+            loot_pool_def: data_manager
+                .loot_pool_db
+                .lock()
+                .unwrap()
+                .definition(1)
+                .unwrap(),
         },
         SpriteBundle {
             sprite: Sprite {
@@ -294,11 +322,18 @@ fn update_projectiles(
     mut commands: Commands,
     mut projectiles: Query<(&mut Transform, &mut Projectile, Entity)>,
     mut collidables: Query<
-        (&Transform, &mut HitPoints, &Team, Entity),
+        (
+            &Transform,
+            &mut HitPoints,
+            &Team,
+            Option<&LootPoolDropper>,
+            Entity,
+        ),
         (With<Collider>, Without<Projectile>),
     >,
     time: Res<Time>,
     data_manager: Res<DataManager>,
+    game_state: Res<GameState>,
 ) {
     for (mut projectile_transform, mut projectile, entity) in &mut projectiles {
         let forward = -projectile_transform.local_y();
@@ -311,7 +346,9 @@ fn update_projectiles(
             continue;
         }
 
-        for (collidable_transform, mut hit_points, team, collider_entity) in &mut collidables {
+        for (collidable_transform, mut hit_points, team, maybe_loot, collider_entity) in
+            &mut collidables
+        {
             // Don't let projectiles hurt their own team members
             if team.id == projectile.team_id {
                 continue;
@@ -325,14 +362,25 @@ fn update_projectiles(
             )
             .is_some()
             {
-                println!("Collision with {}", team.debug);
                 hit_points.health -= projectile.damage;
                 if hit_points.health <= 0.0 {
                     commands.entity(collider_entity).despawn();
 
                     // eventually do something with this
-                    let x = data_manager.item_db.lock().unwrap();
-                    println!("{}", x.definitions().first().unwrap().lock().unwrap().id);
+                    if let Some(loot) = maybe_loot {
+                        let def = loot.loot_pool_def.clone();
+                        let item = game_state.loot_pool_generator.generate(
+                            def,
+                            &LootPoolCriteria {},
+                            &(
+                                data_manager.affix_db.clone(),
+                                data_manager.affix_pool_db.clone(),
+                                data_manager.item_db.clone(),
+                            ),
+                        );
+
+                        println!("{}", item);
+                    }
                 }
 
                 commands.entity(entity).despawn();
