@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use bevy::prelude::Resource;
 use cypher_core::{
     affix::database::AffixDefinitionDatabase, affix_pool::database::AffixPoolDefinitionDatabase,
+    data::DataDefinitionDatabase,
 };
 use cypher_item::{
     item::database::ItemDefinitionDatabase, loot_pool::database::LootPoolDefinitionDatabase,
@@ -25,6 +26,7 @@ impl Default for DataManager {
         affix_db_path.push("affix.json");
         let affix_db = Arc::new(Mutex::new(AffixDefinitionDatabase::load_from(
             affix_db_path.to_str().unwrap(),
+            &(),
         )));
 
         let mut affix_pool_db_path = std::env::current_dir().unwrap();
@@ -33,8 +35,8 @@ impl Default for DataManager {
         affix_pool_db_path.push("game_data");
         affix_pool_db_path.push("affix_pool.json");
         let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::load_from(
-            affix_db.clone(),
             affix_pool_db_path.to_str().unwrap(),
+            &affix_db,
         )));
 
         let mut item_db_path = std::env::current_dir().unwrap();
@@ -43,8 +45,8 @@ impl Default for DataManager {
         item_db_path.push("game_data");
         item_db_path.push("item.json");
         let item_db = Arc::new(Mutex::new(ItemDefinitionDatabase::load_from(
-            affix_pool_db.clone(),
             item_db_path.to_str().unwrap(),
+            &affix_pool_db,
         )));
 
         let mut loot_pool_db_path = std::env::current_dir().unwrap();
@@ -53,8 +55,8 @@ impl Default for DataManager {
         loot_pool_db_path.push("game_data");
         loot_pool_db_path.push("loot_pool.json");
         let loot_pool_db = Arc::new(Mutex::new(LootPoolDefinitionDatabase::load_from(
-            item_db.clone(),
             loot_pool_db_path.to_str().unwrap(),
+            &item_db,
         )));
 
         DataManager {

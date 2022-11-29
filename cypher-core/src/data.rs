@@ -9,6 +9,12 @@ pub trait DataDefinition {
 }
 
 pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
+    type DataDependencies;
+
+    fn load_from<S: Into<String>>(path: S, dependencies: &Self::DataDependencies) -> Self;
+
+    fn write_to<S: Into<String>>(&self, path: S);
+
     /// Returns whether a database has successfully loaded all data.
     fn validate(&self) -> bool;
 
@@ -19,6 +25,8 @@ pub trait DataDefinitionDatabase<DataDefinitionType: DataDefinition> {
     ) -> Option<Arc<Mutex<DataDefinitionType>>>;
 
     fn definitions(&self) -> Vec<Arc<Mutex<DataDefinitionType>>>;
+
+    fn add_definition(&mut self, definition: DataDefinitionType);
 }
 
 pub trait DataInstanceGenerator<

@@ -18,7 +18,7 @@ fn round_to(num: f32, decimal_places: u32) -> f32 {
     (num * factor as f32).round() / factor as f32
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct AffixDefinition {
     /// Opaque ID.
     pub id: AffixDefinitionId,
@@ -119,7 +119,7 @@ pub struct AffixGenerationCriteria {
     pub item_level: Option<u8>,
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct AffixDefinitionTier {
     pub tier: AffixTierId,
 
@@ -138,7 +138,7 @@ impl AffixDefinitionTier {
     }
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct AffixDefinitionStat {
     pub stat: Stat,
 

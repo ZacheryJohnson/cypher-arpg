@@ -22,16 +22,19 @@ impl LootPoolDefinitionDatabase {
         path.push("data");
         path.push("loot_pool.json");
 
-        Self::load_from(item_db, path.to_str().unwrap())
+        Self::load_from(path.to_str().unwrap(), &item_db)
     }
+}
 
-    pub fn load_from<S: Into<String>>(
-        item_db: Arc<Mutex<ItemDefinitionDatabase>>,
-        path: S,
-    ) -> Self {
+impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
+    type DataDependencies = Arc<Mutex<ItemDefinitionDatabase>>;
+
+    fn load_from<S: Into<String>>(path: S, dependencies: &Self::DataDependencies) -> Self {
         let loot_pool_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
 
-        let loot_pool_deserializer = LootPoolDatabaseDeserializer { item_db };
+        let loot_pool_deserializer = LootPoolDatabaseDeserializer {
+            item_db: dependencies.clone(),
+        };
         let pools_database: Vec<LootPoolDefinition> = loot_pool_deserializer
             .deserialize(&mut serde_json::Deserializer::from_str(
                 loot_pool_file.as_str(),
@@ -45,9 +48,20 @@ impl LootPoolDefinitionDatabase {
 
         LootPoolDefinitionDatabase { pools }
     }
-}
 
-impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
+    fn write_to<S: Into<String>>(&self, path: S) {
+        let definition_clones = self
+            .pools
+            .iter()
+            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .collect::<Vec<LootPoolDefinition>>();
+
+        let serialized = serde_json::ser::to_string(&definition_clones)
+            .expect("failed to serialize loot pool database");
+
+        std::fs::write(path.into(), serialized).expect("failed to write serialized data to path");
+    }
+
     fn validate(&self) -> bool {
         !self.pools.is_empty()
             && self
@@ -61,5 +75,10 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
     }
     fn definitions(&self) -> Vec<Arc<Mutex<LootPoolDefinition>>> {
         self.pools.iter().map(|(_, def)| def.to_owned()).collect()
+    }
+
+    fn add_definition(&mut self, definition: LootPoolDefinition) {
+        self.pools
+            .insert(definition.id, Arc::new(Mutex::new(definition)));
     }
 }

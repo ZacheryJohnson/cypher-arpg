@@ -14,7 +14,7 @@ pub type LootPoolDefinitionId = u32;
 /// A [LootPoolDefinition] is a collection of [LootPoolMember]s. When generating items from a [LootPool],
 /// the item will be chosen from one of the [LootPoolMember]s.
 /// Enemies may have one or more [LootPoolDefinition]s.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct LootPoolDefinition {
     id: LootPoolDefinitionId,
 
@@ -34,7 +34,7 @@ impl DataDefinition for LootPoolDefinition {
 ///
 /// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct LootPoolMember {
     #[serde(serialize_with = "serialize_item_def_member")]
     /// What item will be generated when selected.

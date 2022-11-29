@@ -7,9 +7,12 @@ use cypher_core::affix::definition::{AffixDefinition, AffixDefinitionStat, Affix
 use cypher_core::affix::placement::AffixPlacement;
 use cypher_core::affix_pool::database::AffixPoolDefinitionDatabase;
 use cypher_core::affix_pool::definition::AffixPoolDefinition;
+use cypher_core::affix_pool::member::AffixPoolMember;
 use cypher_core::data::{DataDefinition, DataDefinitionDatabase};
 use cypher_core::stat::Stat;
 use cypher_item::item::database::ItemDefinitionDatabase;
+use cypher_item::item::ItemDefinition;
+use cypher_item::item::{ItemClassification, ItemEquipSlot};
 
 use cypher_item::loot_pool::database::LootPoolDefinitionDatabase;
 use eframe::egui;
@@ -80,24 +83,25 @@ impl DataEditorApp {
         let affix_db_path = get_affix_db_path();
         let affix_db = Arc::new(Mutex::new(AffixDefinitionDatabase::load_from(
             affix_db_path.to_str().unwrap(),
+            &(),
         )));
 
         let affix_pool_db_path = get_affix_pool_db_path();
         let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::load_from(
-            affix_db.clone(),
             affix_pool_db_path.to_str().unwrap(),
+            &affix_db.clone(),
         )));
 
         let item_db_path = get_item_db_path();
         let item_db = Arc::new(Mutex::new(ItemDefinitionDatabase::load_from(
-            affix_pool_db.clone(),
             item_db_path.to_str().unwrap(),
+            &affix_pool_db.clone(),
         )));
 
         let loot_pool_db_path = get_loot_pool_db_path();
         let loot_pool_db = Arc::new(Mutex::new(LootPoolDefinitionDatabase::load_from(
-            item_db.clone(),
             loot_pool_db_path.to_str().unwrap(),
+            &item_db.clone(),
         )));
 
         DataEditorApp {
@@ -120,10 +124,22 @@ impl DataEditorApp {
     fn write_data(&mut self) {
         println!("Writing data files");
 
-        // self.affix_db.lock().unwrap().write_to(get_affix_db_path());
-        // self.affix_pool_db.lock().unwrap().write_to(get_affix_pool_db_path());
-        // self.item_db.lock().unwrap().write_to(get_item_db_path());
-        // self.loot_pool_db.lock().unwrap().write_to(get_loot_pool_db_path());
+        self.affix_db
+            .lock()
+            .unwrap()
+            .write_to(get_affix_db_path().to_str().unwrap());
+        self.affix_pool_db
+            .lock()
+            .unwrap()
+            .write_to(get_affix_pool_db_path().to_str().unwrap());
+        self.item_db
+            .lock()
+            .unwrap()
+            .write_to(get_item_db_path().to_str().unwrap());
+        self.loot_pool_db
+            .lock()
+            .unwrap()
+            .write_to(get_loot_pool_db_path().to_str().unwrap());
     }
 
     fn draw_file_menu_options(&mut self, ui: &mut Ui) {
@@ -141,9 +157,17 @@ impl DataEditorApp {
     fn draw_affix_editor(&mut self, ctx: &egui::Context, _ui: &mut Ui) {
         egui::TopBottomPanel::top("affix_menu_bar").show(ctx, |ui| {
             if ui.button("Add").clicked() {
-                let affix_db = self.affix_db.lock().unwrap();
-                let mut affixes = affix_db.definitions();
-                let next_id = affixes.last().unwrap().lock().unwrap().id + 1;
+                self.invalidate_selections();
+
+                let mut affix_db = self.affix_db.lock().unwrap();
+                let affixes = affix_db.definitions();
+                let next_id = affixes.iter().fold(0, |acc, next| {
+                    if acc > next.lock().unwrap().id {
+                        acc
+                    } else {
+                        next.lock().unwrap().id
+                    }
+                }) + 1;
                 let new_affix = AffixDefinition {
                     id: next_id,
                     placement: AffixPlacement::Invalid,
@@ -151,9 +175,7 @@ impl DataEditorApp {
                     name: String::new(),
                 };
 
-                affixes.push(Arc::new(Mutex::new(new_affix)));
-
-                // self.invalidate_selections();
+                affix_db.add_definition(new_affix);
             }
         });
 
@@ -347,7 +369,10 @@ impl DataEditorApp {
                 })
                 .body(|body| {
                     let affix_db = self.affix_db.lock().unwrap();
-                    let affixes = affix_db.definitions();
+                    let mut affixes = affix_db.definitions();
+
+                    // ZJ-TODO: other sorting/filtering methods? would be nice to sort/filter other columns, not just ID
+                    affixes.sort_by(|a, b| a.lock().unwrap().id.cmp(&b.lock().unwrap().id));
 
                     body.rows(30., affixes.len(), |idx, mut row| {
                         let affix = affixes[idx].lock().unwrap();
@@ -381,8 +406,10 @@ impl DataEditorApp {
     fn draw_affix_pool_editor(&mut self, ctx: &egui::Context, _ui: &mut Ui) {
         egui::TopBottomPanel::top("affix_pool_menu_bar").show(ctx, |ui| {
             if ui.button("Add").clicked() {
-                let affix_pool_db = self.affix_pool_db.lock().unwrap();
-                let mut affix_pools = affix_pool_db.definitions();
+                self.invalidate_selections();
+
+                let mut affix_pool_db = self.affix_pool_db.lock().unwrap();
+                let affix_pools = affix_pool_db.definitions();
                 let next_id = affix_pools.last().unwrap().lock().unwrap().id + 1;
                 let new_affix_pool = AffixPoolDefinition {
                     id: next_id,
@@ -390,9 +417,7 @@ impl DataEditorApp {
                     name: String::default(),
                 };
 
-                affix_pools.push(Arc::new(Mutex::new(new_affix_pool)));
-
-                // self.invalidate_selections();
+                affix_pool_db.add_definition(new_affix_pool);
             }
         });
 
@@ -404,21 +429,25 @@ impl DataEditorApp {
                         let mut should_close_sidebar = false;
                         ui.horizontal(|ui| {
                             if ui.button("Close").clicked() {
-                                // self.invalidate_selections();
+                                self.invalidate_selections();
                                 should_close_sidebar = true;
                             }
                             if ui.button("Delete").clicked() {
-                                let affix_pool_db = self.affix_pool_db.lock().unwrap();
-                                let mut affix_pools = affix_pool_db.definitions();
-                                if let Ok(idx) = affix_pools.binary_search_by(|def| {
-                                    (def.lock().unwrap().id as u64)
-                                        .cmp(&self.selected_definition_id.unwrap())
-                                }) {
-                                    affix_pools.remove(idx);
+                                {
+                                    // ZJ-TODO: deletions
+                                    let affix_pool_db = self.affix_pool_db.lock().unwrap();
+                                    let mut affix_pools = affix_pool_db.definitions();
+                                    if let Ok(idx) = affix_pools.binary_search_by(|def| {
+                                        (def.lock().unwrap().id as u64)
+                                            .cmp(&self.selected_definition_id.unwrap())
+                                    }) {
+                                        affix_pools.remove(idx);
+                                    }
+
+                                    should_close_sidebar = true;
                                 }
 
-                                // self.invalidate_selections();
-                                should_close_sidebar = true;
+                                self.invalidate_selections();
                             }
                         });
 
@@ -431,45 +460,50 @@ impl DataEditorApp {
 
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         let affix_pool_db = self.affix_pool_db.lock().unwrap();
-                        let mut affix_pools = affix_pool_db.definitions();
-                        let affix_pool = affix_pools
-                            .iter_mut()
+                        let affix_pools = affix_pool_db.definitions();
+                        let mut affix_pool = affix_pools
+                            .iter()
                             .find(|def| {
                                 def.lock().unwrap().id as u64
                                     == self.selected_definition_id.unwrap()
                             })
+                            .unwrap()
+                            .lock()
                             .unwrap();
 
-                        ui.label(format!("Id: {}", affix_pool.lock().unwrap().id));
+                        ui.label(format!("Id: {}", affix_pool.id));
                         ui.horizontal(|ui| {
                             ui.label("Name");
-                            ui.text_edit_singleline(&mut affix_pool.lock().unwrap().name);
+                            ui.text_edit_singleline(&mut affix_pool.name);
                         });
 
                         ui.separator();
                         ui.label("Members");
                         if ui.button("Add").clicked() {
-                            /*
-                            affix_pool.members.push(AffixPoolMember {
-                                affix_id: 0,
+                            let definition = AffixPoolMember {
+                                affix_def: self
+                                    .affix_db
+                                    .lock()
+                                    .unwrap()
+                                    .definitions()
+                                    .first()
+                                    .unwrap()
+                                    .to_owned(),
                                 weight: 0,
-                            });
-                            */
-                            todo!("Implement adding new affix pool members")
+                            };
+                            affix_pool.members.push(definition);
                         }
 
-                        /*
-                        // TODO: make DragValue work
                         for member in &mut affix_pool.members {
+                            let member_def = member.affix_def.lock().unwrap();
                             ui.horizontal(|ui| {
-                                ui.label(format!("Id: {}", member.affix_def.id));
+                                ui.label(format!("{}", member_def.name));
                                 ui.horizontal(|ui| {
                                     ui.label("Weight");
                                     ui.add(egui::DragValue::new(&mut member.weight));
                                 });
                             });
                         }
-                        */
                     });
                 });
         }
@@ -526,15 +560,250 @@ impl DataEditorApp {
         });
     }
 
-    fn draw_item_editor(&mut self, ui: &mut Ui) {
-        // ZJ-TODO: locking mutex at this wide of a scope is real dangerous
-        //          I've deadlocked the others already - do it in the smallest scope possible
-        let item_db = self.item_db.lock().unwrap();
-        let items = item_db.definitions();
+    fn draw_item_editor(&mut self, ctx: &egui::Context, _ui: &mut Ui) {
+        egui::TopBottomPanel::top("item_menu_bar").show(ctx, |ui| {
+            if ui.button("Add").clicked() {
+                self.invalidate_selections();
 
-        for item in &items {
-            ui.label(format!("{:?}", item));
+                let mut item_db = self.item_db.lock().unwrap();
+                let items = item_db.definitions();
+                let next_id = items.iter().fold(0, |acc, next| {
+                    if acc > next.lock().unwrap().id {
+                        acc
+                    } else {
+                        next.lock().unwrap().id
+                    }
+                }) + 1;
+                let new_affix = ItemDefinition {
+                    id: next_id,
+                    classification: ItemClassification::Invalid,
+                    affix_pools: vec![],
+                    name: String::new(),
+                };
+
+                item_db.add_definition(new_affix);
+            }
+        });
+
+        if self.selected_definition_id.is_some() {
+            egui::SidePanel::right("item_right_panel")
+                .min_width(300.)
+                .show(ctx, |ui| {
+                    if ui.button("Close").clicked() {
+                        self.invalidate_selections();
+                        return;
+                    }
+                    ui.separator();
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        let item_db = self.item_db.lock().unwrap();
+                        let mut items = item_db.definitions();
+                        let mut item = items
+                            .iter_mut()
+                            .find(|def| {
+                                def.lock().unwrap().id as u64
+                                    == self.selected_definition_id.unwrap()
+                            })
+                            .unwrap()
+                            .lock()
+                            .unwrap();
+
+                        ui.label(format!("Id: {}", item.id));
+                        ui.horizontal(|ui| {
+                            ui.label("Name");
+                            ui.text_edit_singleline(&mut item.name);
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("Classification");
+                            let selected_classification = &mut item.classification;
+                            egui::ComboBox::from_id_source("Classification")
+                                .selected_text(format!("{:?}", selected_classification))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::Head),
+                                        "Head",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::LeftArm),
+                                        "LeftArm",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::RightArm),
+                                        "RightArm",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::Body),
+                                        "Body",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::Belt),
+                                        "Belt",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::Legs),
+                                        "Legs",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Equippable(ItemEquipSlot::Boots),
+                                        "Boots",
+                                    );
+                                    ui.selectable_value(
+                                        selected_classification,
+                                        ItemClassification::Currency,
+                                        "Currency",
+                                    );
+                                });
+                        });
+
+                        ui.separator();
+
+                        ui.label("Affix Pools");
+                        ui.horizontal(|ui| {
+                            if ui.button("Add").clicked() {
+                                let next_id = item.affix_pools.len() as u32;
+                                item.affix_pools.insert(
+                                    next_id as usize,
+                                    Arc::new(Mutex::new(AffixPoolDefinition {
+                                        id: next_id,
+                                        members: vec![],
+                                        name: String::default(),
+                                    })),
+                                );
+                            }
+                        });
+
+                        ui.separator();
+
+                        let mut remove_id = Option::None;
+                        let mut replace_ids: Option<(u32, u32)> = Option::None;
+
+                        for def in &item.affix_pools {
+                            ui.horizontal(|ui| {
+                                let (mut affix_pool_id, affix_pool_name) = {
+                                    let affix_pool = def.lock().unwrap();
+
+                                    (affix_pool.id, affix_pool.name.clone())
+                                };
+
+                                egui::ComboBox::from_id_source(format!("ItemAffixPools{:?}", def))
+                                    .selected_text(format!("{}", affix_pool_name))
+                                    .show_ui(ui, |ui| {
+                                        let selected_pool_id = &mut affix_pool_id;
+                                        let mut affix_pool_definitions =
+                                            self.affix_pool_db.lock().unwrap().definitions();
+                                        affix_pool_definitions.retain(|def| {
+                                            def.lock().unwrap().id != *selected_pool_id
+                                        });
+
+                                        for pool in affix_pool_definitions {
+                                            let pool_def = pool.lock().unwrap();
+                                            ui.selectable_value(
+                                                selected_pool_id,
+                                                pool_def.id,
+                                                pool_def.name.as_str(),
+                                            );
+                                        }
+                                    });
+
+                                if ui.button("Remove").clicked() {
+                                    remove_id = Some(item.affix_pools.len() as u32 - 1);
+                                }
+
+                                let old_id = def.lock().unwrap().id;
+                                if old_id != affix_pool_id {
+                                    replace_ids = Some((old_id, affix_pool_id));
+                                }
+                            });
+                        }
+
+                        if let Some(id) = remove_id {
+                            item.affix_pools
+                                .retain(|pool| pool.lock().unwrap().id != id);
+                        }
+
+                        if let Some((old_id, new_id)) = replace_ids {
+                            let item_idx = item
+                                .affix_pools
+                                .binary_search_by(|probe| probe.lock().unwrap().id.cmp(&old_id))
+                                .unwrap();
+                            item.affix_pools.remove(item_idx);
+                            let new_def = self
+                                .affix_pool_db
+                                .lock()
+                                .unwrap()
+                                .definition(new_id)
+                                .unwrap();
+                            item.affix_pools.push(new_def);
+                        }
+                    });
+                });
         }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(egui::Layout::left_to_right().with_cross_align(egui::Align::Center))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::remainder().at_least(60.0))
+                .resizable(true)
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.heading("Id");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Name");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Classification");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Pools");
+                    });
+                })
+                .body(|body| {
+                    let item_db = self.item_db.lock().unwrap();
+                    let mut items = item_db.definitions();
+
+                    // ZJ-TODO: other sorting/filtering methods? would be nice to sort/filter other columns, not just ID
+                    items.sort_by(|a, b| a.lock().unwrap().id.cmp(&b.lock().unwrap().id));
+
+                    body.rows(30., items.len(), |idx, mut row| {
+                        let item = items[idx].lock().unwrap();
+
+                        let mut make_col_fn =
+                            |item: &ItemDefinition,
+                             text: String,
+                             row: &mut egui_extras::TableRow| {
+                                let x = row.col(|ui| {
+                                    if item.validate() {
+                                        ui.label(text);
+                                    } else {
+                                        ui.colored_label(Color32::RED, text);
+                                    }
+                                });
+
+                                if x.interact(egui::Sense::click()).clicked() {
+                                    self.selected_definition_id = Some(item.id as u64);
+                                }
+                            };
+
+                        make_col_fn(&item, item.id.to_string(), &mut row);
+                        make_col_fn(&item, item.name.clone(), &mut row);
+                        make_col_fn(&item, item.classification.to_string(), &mut row);
+                        make_col_fn(&item, item.affix_pools.len().to_string(), &mut row);
+                    });
+                });
+        });
     }
 
     fn draw_loot_pool_editor(&mut self, ui: &mut Ui) {
@@ -588,7 +857,7 @@ impl eframe::App for DataEditorApp {
         egui::CentralPanel::default().show(ctx, |ui| match self.selected_editor {
             SelectedEditor::Affix => self.draw_affix_editor(ctx, ui),
             SelectedEditor::AffixPool => self.draw_affix_pool_editor(ctx, ui),
-            SelectedEditor::Item => self.draw_item_editor(ui),
+            SelectedEditor::Item => self.draw_item_editor(ctx, ui),
             SelectedEditor::LootPool => self.draw_loot_pool_editor(ui),
             _ => {}
         });

@@ -20,6 +20,12 @@ pub enum ItemClassification {
     Currency,
 }
 
+impl std::fmt::Display for ItemClassification {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Copy, Deserialize, Debug, Serialize, PartialEq, Eq)]
 pub enum ItemEquipSlot {
     // These are all WIP! Expect these to change
@@ -32,7 +38,7 @@ pub enum ItemEquipSlot {
     Boots,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ItemDefinition {
     pub id: ItemDefinitionId,
 
@@ -41,7 +47,7 @@ pub struct ItemDefinition {
     #[serde(serialize_with = "serialize_affix_pools_member")]
     pub affix_pools: Vec<Arc<Mutex<AffixPoolDefinition>>>,
 
-    name: String,
+    pub name: String,
 }
 
 fn serialize_affix_pools_member<S>(

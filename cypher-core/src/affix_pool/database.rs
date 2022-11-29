@@ -17,6 +17,36 @@ pub struct AffixPoolDefinitionDatabase {
 }
 
 impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase {
+    type DataDependencies = Arc<Mutex<AffixDefinitionDatabase>>;
+
+    fn load_from<S: Into<String>>(path: S, dependencies: &Self::DataDependencies) -> Self {
+        let affix_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
+        let deserializer = AffixPoolDatabaseDeserializer::new(dependencies.clone());
+        let definitions = deserializer
+            .deserialize(&mut serde_json::Deserializer::from_str(affix_file.as_str()))
+            .unwrap();
+
+        let affix_pools = definitions
+            .into_iter()
+            .map(|pool| (pool.id, Arc::new(Mutex::new(pool))))
+            .collect::<HashMap<_, _>>();
+
+        AffixPoolDefinitionDatabase { affix_pools }
+    }
+
+    fn write_to<S: Into<String>>(&self, path: S) {
+        let definition_clones = self
+            .affix_pools
+            .iter()
+            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .collect::<Vec<AffixPoolDefinition>>();
+
+        let serialized = serde_json::ser::to_string(&definition_clones)
+            .expect("failed to serialize affix pool database");
+
+        std::fs::write(path.into(), serialized).expect("failed to write serialized data to path");
+    }
+
     fn validate(&self) -> bool {
         !self.affix_pools.is_empty()
             && self
@@ -35,6 +65,11 @@ impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase
             .map(|(_, def)| def.to_owned())
             .collect()
     }
+
+    fn add_definition(&mut self, definition: AffixPoolDefinition) {
+        self.affix_pools
+            .insert(definition.id, Arc::new(Mutex::new(definition)));
+    }
 }
 
 impl AffixPoolDefinitionDatabase {
@@ -45,25 +80,7 @@ impl AffixPoolDefinitionDatabase {
         path.push("data");
         path.push("affix_pool.json");
 
-        Self::load_from(affix_db, path.to_str().unwrap())
-    }
-
-    pub fn load_from<S: Into<String>>(
-        affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
-        path: S,
-    ) -> Self {
-        let affix_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
-        let deserializer = AffixPoolDatabaseDeserializer::new(affix_db);
-        let definitions = deserializer
-            .deserialize(&mut serde_json::Deserializer::from_str(affix_file.as_str()))
-            .unwrap();
-
-        let affix_pools = definitions
-            .into_iter()
-            .map(|pool| (pool.id, Arc::new(Mutex::new(pool))))
-            .collect::<HashMap<_, _>>();
-
-        AffixPoolDefinitionDatabase { affix_pools }
+        Self::load_from(path.to_str().unwrap(), &affix_db)
     }
 }
 

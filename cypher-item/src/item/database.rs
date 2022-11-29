@@ -23,16 +23,19 @@ impl ItemDefinitionDatabase {
         path.push("data");
         path.push("item.json");
 
-        Self::load_from(affix_pool_db, path.to_str().unwrap())
+        Self::load_from(path.to_str().unwrap(), &affix_pool_db)
     }
+}
 
-    pub fn load_from<S: Into<String>>(
-        affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
-        path: S,
-    ) -> Self {
+impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
+    type DataDependencies = Arc<Mutex<AffixPoolDefinitionDatabase>>;
+
+    fn load_from<S: Into<String>>(path: S, dependencies: &Self::DataDependencies) -> Self {
         let item_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
 
-        let item_def_deserializer = ItemDefinitionDatabaseDeserializer { affix_pool_db };
+        let item_def_deserializer = ItemDefinitionDatabaseDeserializer {
+            affix_pool_db: dependencies.clone(),
+        };
         let definitions: Vec<ItemDefinition> = item_def_deserializer
             .deserialize(&mut serde_json::Deserializer::from_str(item_file.as_str()))
             .unwrap();
@@ -44,9 +47,20 @@ impl ItemDefinitionDatabase {
 
         ItemDefinitionDatabase { items }
     }
-}
 
-impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
+    fn write_to<S: Into<String>>(&self, path: S) {
+        let definition_clones = self
+            .items
+            .iter()
+            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .collect::<Vec<ItemDefinition>>();
+
+        let serialized = serde_json::ser::to_string(&definition_clones)
+            .expect("failed to serialize item database");
+
+        std::fs::write(path.into(), serialized).expect("failed to write serialized data to path");
+    }
+
     fn validate(&self) -> bool {
         !self.items.is_empty()
             && self
@@ -61,5 +75,10 @@ impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
 
     fn definitions(&self) -> Vec<Arc<Mutex<ItemDefinition>>> {
         self.items.iter().map(|(_, def)| def.to_owned()).collect()
+    }
+
+    fn add_definition(&mut self, definition: ItemDefinition) {
+        self.items
+            .insert(definition.id, Arc::new(Mutex::new(definition)));
     }
 }
