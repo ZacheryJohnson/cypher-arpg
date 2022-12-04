@@ -7,6 +7,7 @@ use crate::affix::definition::AffixDefinition;
 #[derive(Clone, Debug, Serialize)]
 pub struct AffixPoolMember {
     #[serde(serialize_with = "serialize_affix_definition_member")]
+    #[serde(rename = "affix_id")]
     /// What affix will be generated when selected.
     pub affix_def: Arc<Mutex<AffixDefinition>>,
 

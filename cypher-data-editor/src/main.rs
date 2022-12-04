@@ -10,11 +10,12 @@ use cypher_core::affix_pool::definition::AffixPoolDefinition;
 use cypher_core::affix_pool::member::AffixPoolMember;
 use cypher_core::data::{DataDefinition, DataDefinitionDatabase};
 use cypher_core::stat::Stat;
+use cypher_item::item::classification::{ItemClassification, ItemEquipSlot};
 use cypher_item::item::database::ItemDefinitionDatabase;
-use cypher_item::item::ItemDefinition;
-use cypher_item::item::{ItemClassification, ItemEquipSlot};
 
+use cypher_item::item::definition::ItemDefinition;
 use cypher_item::loot_pool::database::LootPoolDefinitionDatabase;
+use cypher_item::loot_pool::definition::LootPoolDefinition;
 use eframe::egui;
 use egui::{Color32, Ui};
 use egui_extras::{Size, TableBuilder};
@@ -806,15 +807,128 @@ impl DataEditorApp {
         });
     }
 
-    fn draw_loot_pool_editor(&mut self, ui: &mut Ui) {
-        // ZJ-TODO: locking mutex at this wide of a scope is real dangerous
-        //          I've deadlocked the others already - do it in the smallest scope possible
-        let loot_pool_db = self.loot_pool_db.lock().unwrap();
-        let loot_pools = loot_pool_db.definitions();
+    fn draw_loot_pool_editor(&mut self, ctx: &egui::Context, _ui: &mut Ui) {
+        egui::TopBottomPanel::top("loot_pool_menu_bar").show(ctx, |ui| {
+            if ui.button("Add").clicked() {
+                self.invalidate_selections();
 
-        for pool in &loot_pools {
-            ui.label(format!("{:?}", pool));
+                let mut loot_pool_db = self.loot_pool_db.lock().unwrap();
+                let loot_pools = loot_pool_db.definitions();
+                let next_id = loot_pools.iter().fold(0, |acc, next| {
+                    if acc > next.lock().unwrap().id {
+                        acc
+                    } else {
+                        next.lock().unwrap().id
+                    }
+                }) + 1;
+                let new_loot_pool = LootPoolDefinition {
+                    id: next_id,
+                    name: String::new(),
+                    members: vec![],
+                };
+
+                loot_pool_db.add_definition(new_loot_pool);
+            }
+        });
+
+        if self.selected_definition_id.is_some() {
+            egui::SidePanel::right("loot_pool_right_panel")
+                .min_width(300.)
+                .show(ctx, |ui| {
+                    if ui.button("Close").clicked() {
+                        self.invalidate_selections();
+                        return;
+                    }
+                    ui.separator();
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        let loot_pool_db = self.loot_pool_db.lock().unwrap();
+                        let mut loot_pools = loot_pool_db.definitions();
+                        let mut loot_pool = loot_pools
+                            .iter_mut()
+                            .find(|def| {
+                                def.lock().unwrap().id as u64
+                                    == self.selected_definition_id.unwrap()
+                            })
+                            .unwrap()
+                            .lock()
+                            .unwrap();
+
+                        ui.label(format!("Id: {}", loot_pool.id));
+                        ui.horizontal(|ui| {
+                            ui.label("Name");
+                            ui.text_edit_singleline(&mut loot_pool.name);
+                        });
+
+                        ui.separator();
+
+                        for member in &mut loot_pool.members {
+                            let member_def = member.item_def.lock().unwrap();
+                            ui.horizontal(|ui| {
+                                ui.label(format!("{}", member_def.name));
+                                ui.horizontal(|ui| {
+                                    ui.label("Weight");
+                                    ui.add(egui::DragValue::new(&mut member.weight));
+                                });
+                            });
+                        }
+                    });
+                });
         }
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .cell_layout(egui::Layout::left_to_right().with_cross_align(egui::Align::Center))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::initial(60.0).at_least(40.0))
+                .column(Size::remainder().at_least(60.0))
+                .resizable(true)
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.heading("Id");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Name");
+                    });
+                    header.col(|ui| {
+                        ui.heading("Members");
+                    });
+                })
+                .body(|body| {
+                    let loot_pool_db = self.loot_pool_db.lock().unwrap();
+                    let mut loot_pools = loot_pool_db.definitions();
+
+                    // ZJ-TODO: other sorting/filtering methods? would be nice to sort/filter other columns, not just ID
+                    loot_pools.sort_by(|a, b| a.lock().unwrap().id.cmp(&b.lock().unwrap().id));
+
+                    body.rows(30., loot_pools.len(), |idx, mut row| {
+                        let item = loot_pools[idx].lock().unwrap();
+
+                        let mut make_col_fn =
+                            |item: &LootPoolDefinition,
+                             text: String,
+                             row: &mut egui_extras::TableRow| {
+                                let x = row.col(|ui| {
+                                    if item.validate() {
+                                        ui.label(text);
+                                    } else {
+                                        ui.colored_label(Color32::RED, text);
+                                    }
+                                });
+
+                                if x.interact(egui::Sense::click()).clicked() {
+                                    self.selected_definition_id = Some(item.id as u64);
+                                }
+                            };
+
+                        make_col_fn(&item, item.id.to_string(), &mut row);
+                        make_col_fn(&item, item.name.clone(), &mut row);
+                        make_col_fn(&item, item.members.len().to_string(), &mut row);
+                    });
+                });
+        });
     }
 
     fn invalidate_selections(&mut self) {
@@ -858,7 +972,7 @@ impl eframe::App for DataEditorApp {
             SelectedEditor::Affix => self.draw_affix_editor(ctx, ui),
             SelectedEditor::AffixPool => self.draw_affix_pool_editor(ctx, ui),
             SelectedEditor::Item => self.draw_item_editor(ctx, ui),
-            SelectedEditor::LootPool => self.draw_loot_pool_editor(ui),
+            SelectedEditor::LootPool => self.draw_loot_pool_editor(ctx, ui),
             _ => {}
         });
     }

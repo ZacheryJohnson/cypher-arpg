@@ -7,7 +7,7 @@ use crate::{
     affix::{
         database::AffixDefinitionDatabase,
         definition::{AffixDefinition, AffixGenerationCriteria},
-        Affix,
+        instance::AffixInstance,
     },
     data::{DataDefinition, DataDefinitionDatabase},
 };
@@ -38,7 +38,7 @@ impl AffixPoolDefinition {
         &self,
         affix_database: Arc<Mutex<AffixDefinitionDatabase>>,
         criteria: &AffixGenerationCriteria,
-    ) -> Option<Affix> {
+    ) -> Option<AffixInstance> {
         let filtered = self
             .members
             .iter()

@@ -8,7 +8,10 @@ use serde::de::DeserializeSeed;
 
 use crate::item::database::ItemDefinitionDatabase;
 
-use super::{deserializer::LootPoolDatabaseDeserializer, LootPoolDefinition, LootPoolDefinitionId};
+use super::{
+    definition::{LootPoolDefinition, LootPoolDefinitionId},
+    deserializer::LootPoolDatabaseDeserializer,
+};
 
 pub struct LootPoolDefinitionDatabase {
     pub(crate) pools: HashMap<LootPoolDefinitionId, Arc<Mutex<LootPoolDefinition>>>,
@@ -80,5 +83,34 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
     fn add_definition(&mut self, definition: LootPoolDefinition) {
         self.pools
             .insert(definition.id, Arc::new(Mutex::new(definition)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use cypher_core::{
+        affix::database::AffixDefinitionDatabase,
+        affix_pool::database::AffixPoolDefinitionDatabase, data::DataDefinitionDatabase,
+    };
+
+    use super::LootPoolDefinitionDatabase;
+    use crate::item::database::ItemDefinitionDatabase;
+
+    #[test]
+    fn loot_pool_initialize() {
+        let affix_database = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_database = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
+            affix_database.clone(),
+        )));
+        let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
+            affix_pool_database.clone(),
+        )));
+        let loot_pool_database = Arc::new(Mutex::new(LootPoolDefinitionDatabase::initialize(
+            item_database.clone(),
+        )));
+
+        assert!(loot_pool_database.lock().unwrap().validate())
     }
 }

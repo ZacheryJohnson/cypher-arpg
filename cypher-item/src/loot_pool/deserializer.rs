@@ -6,9 +6,12 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::item::{database::ItemDefinitionDatabase, ItemDefinition, ItemDefinitionId};
+use crate::item::{
+    database::ItemDefinitionDatabase,
+    definition::{ItemDefinition, ItemDefinitionId},
+};
 
-use super::{LootPoolDefinition, LootPoolMember};
+use super::{definition::LootPoolDefinition, member::LootPoolMember};
 
 pub struct LootPoolDatabaseDeserializer {
     pub(super) item_db: Arc<Mutex<ItemDefinitionDatabase>>,
@@ -65,10 +68,11 @@ impl<'de> DeserializeSeed<'de> for LootPoolDeserializer {
     where
         D: serde::Deserializer<'de>,
     {
-        const FIELDS: &[&str] = &["id", "members"];
+        const FIELDS: &[&str] = &["id", "name", "members"];
 
         enum Field {
             Id,
+            Name,
             Members,
         }
 
@@ -99,6 +103,7 @@ impl<'de> DeserializeSeed<'de> for LootPoolDeserializer {
                     {
                         match value {
                             "id" => Ok(Field::Id),
+                            "name" => Ok(Field::Name),
                             "members" => Ok(Field::Members),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -126,12 +131,14 @@ impl<'de> DeserializeSeed<'de> for LootPoolDeserializer {
             {
                 let mut loot_pool = LootPoolDefinition {
                     id: 0,
+                    name: String::new(),
                     members: Vec::new(),
                 };
 
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Id => loot_pool.id = map.next_value()?,
+                        Field::Name => loot_pool.name = map.next_value()?,
                         Field::Members => {
                             loot_pool.members =
                                 map.next_value_seed(LootPoolMemberPoolDeserializer {

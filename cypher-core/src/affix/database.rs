@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::{definition::AffixDefinition, AffixDefinitionId};
+use super::definition::{AffixDefinition, AffixDefinitionId};
 
 #[derive(Debug)]
 pub struct AffixDefinitionDatabase {

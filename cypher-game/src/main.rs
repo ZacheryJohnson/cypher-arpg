@@ -15,8 +15,8 @@ use bevy::{
 };
 use cypher_core::data::{DataDefinitionDatabase, DataInstanceGenerator};
 use cypher_item::loot_pool::{
+    definition::LootPoolDefinition,
     generator::{LootPoolCriteria, LootPoolItemGenerator},
-    LootPoolDefinition,
 };
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};

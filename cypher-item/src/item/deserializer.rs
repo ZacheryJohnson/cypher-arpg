@@ -9,9 +9,9 @@ use serde::{
     Deserialize, Deserializer,
 };
 
-use crate::item::ItemClassification;
+use crate::item::classification::ItemClassification;
 
-use super::ItemDefinition;
+use super::definition::ItemDefinition;
 
 pub struct ItemDefinitionDatabaseDeserializer {
     pub(super) affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,

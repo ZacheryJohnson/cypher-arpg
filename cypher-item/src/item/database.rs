@@ -9,7 +9,10 @@ use cypher_core::{
 };
 use serde::de::DeserializeSeed;
 
-use super::{deserializer::ItemDefinitionDatabaseDeserializer, ItemDefinition, ItemDefinitionId};
+use super::{
+    definition::{ItemDefinition, ItemDefinitionId},
+    deserializer::ItemDefinitionDatabaseDeserializer,
+};
 
 pub struct ItemDefinitionDatabase {
     pub(super) items: HashMap<ItemDefinitionId, Arc<Mutex<ItemDefinition>>>,
@@ -80,5 +83,23 @@ impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
     fn add_definition(&mut self, definition: ItemDefinition) {
         self.items
             .insert(definition.id, Arc::new(Mutex::new(definition)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use cypher_core::{
+        affix::database::AffixDefinitionDatabase, affix_pool::database::AffixPoolDefinitionDatabase,
+    };
+
+    use super::{ItemDefinitionDatabase, *};
+
+    #[test]
+    fn init_item_database() {
+        let affix_db = Arc::new(Mutex::new(AffixDefinitionDatabase::initialize()));
+        let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
+            affix_db.clone(),
+        )));
+        let _item_db = Arc::new(ItemDefinitionDatabase::initialize(affix_pool_db.clone()));
     }
 }

@@ -11,7 +11,7 @@ use cypher_core::{
 
 use rand::{distributions::WeightedIndex, prelude::*};
 
-use super::{Item, ItemDefinition};
+use super::{definition::ItemDefinition, instance::ItemInstance};
 
 pub struct ItemDefinitionCriteria {
     /// How many affixes can this item roll? Stored as tuples, where tuple.0 = number of affixes possible, and tuple.1 = affix weight
@@ -28,7 +28,7 @@ impl Default for ItemDefinitionCriteria {
 
 pub struct ItemGenerator;
 
-impl DataInstanceGenerator<ItemDefinition, Item, ItemDefinitionCriteria> for ItemGenerator {
+impl DataInstanceGenerator<ItemDefinition, ItemInstance, ItemDefinitionCriteria> for ItemGenerator {
     type DataDependencies = (
         Arc<Mutex<AffixDefinitionDatabase>>,
         Arc<Mutex<AffixPoolDefinitionDatabase>>,
@@ -39,7 +39,7 @@ impl DataInstanceGenerator<ItemDefinition, Item, ItemDefinitionCriteria> for Ite
         definition: Arc<Mutex<ItemDefinition>>,
         criteria: &ItemDefinitionCriteria,
         dependencies: &Self::DataDependencies,
-    ) -> Item {
+    ) -> ItemInstance {
         let (affix_db, affix_pool_db) = dependencies;
 
         let mut affix_criteria = AffixGenerationCriteria::default();
@@ -98,7 +98,7 @@ impl DataInstanceGenerator<ItemDefinition, Item, ItemDefinitionCriteria> for Ite
             affixes.push(affix.unwrap());
         }
 
-        Item {
+        ItemInstance {
             definition: definition.clone(),
             affixes,
         }
@@ -115,7 +115,8 @@ mod tests {
     };
     use rand::seq::SliceRandom;
 
-    use crate::item::{database::ItemDefinitionDatabase, ItemDefinition};
+    use crate::item::database::ItemDefinitionDatabase;
+    use crate::item::definition::ItemDefinition;
 
     use super::{ItemDefinitionCriteria, ItemGenerator};
 

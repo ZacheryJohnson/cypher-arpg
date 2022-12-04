@@ -1,4 +1,5 @@
-use super::{placement::AffixPlacement, Affix};
+use super::instance::AffixInstance;
+use super::placement::AffixPlacement;
 use crate::{
     data::DataDefinition,
     stat::{Stat, StatList, StatModifier},
@@ -65,7 +66,7 @@ impl AffixDefinition {
     pub fn generate(
         definition: Arc<Mutex<AffixDefinition>>,
         criteria: &AffixGenerationCriteria,
-    ) -> Option<Affix> {
+    ) -> Option<AffixInstance> {
         let def = definition.lock().unwrap();
 
         let (_id, tier) = def
@@ -92,7 +93,7 @@ impl AffixDefinition {
 
         let stat_list = StatList::from(stats.as_slice());
 
-        Some(Affix {
+        Some(AffixInstance {
             definition: definition.clone(),
             tier: tier.tier,
             stats: stat_list,

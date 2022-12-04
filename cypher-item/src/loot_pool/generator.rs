@@ -10,17 +10,19 @@ use rand::{distributions::WeightedIndex, prelude::Distribution};
 use crate::item::{
     database::ItemDefinitionDatabase,
     generator::{ItemDefinitionCriteria, ItemGenerator},
-    Item,
+    instance::ItemInstance,
 };
 
-use super::LootPoolDefinition;
+use super::definition::LootPoolDefinition;
 
 #[derive(Default)]
 pub struct LootPoolCriteria {}
 
 pub struct LootPoolItemGenerator;
 
-impl DataInstanceGenerator<LootPoolDefinition, Item, LootPoolCriteria> for LootPoolItemGenerator {
+impl DataInstanceGenerator<LootPoolDefinition, ItemInstance, LootPoolCriteria>
+    for LootPoolItemGenerator
+{
     type DataDependencies = (
         Arc<Mutex<AffixDefinitionDatabase>>,
         Arc<Mutex<AffixPoolDefinitionDatabase>>,
@@ -32,7 +34,7 @@ impl DataInstanceGenerator<LootPoolDefinition, Item, LootPoolCriteria> for LootP
         definition: Arc<Mutex<LootPoolDefinition>>,
         _criteria: &LootPoolCriteria,
         dependencies: &Self::DataDependencies,
-    ) -> Item {
+    ) -> ItemInstance {
         let (affix_db, affix_pool_db, item_db) = dependencies;
 
         let weights = definition
