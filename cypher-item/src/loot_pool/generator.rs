@@ -34,7 +34,7 @@ impl DataInstanceGenerator<LootPoolDefinition, ItemInstance, LootPoolCriteria>
         definition: Arc<Mutex<LootPoolDefinition>>,
         _criteria: &LootPoolCriteria,
         dependencies: &Self::DataDependencies,
-    ) -> ItemInstance {
+    ) -> Option<ItemInstance> {
         let (affix_db, affix_pool_db, item_db) = dependencies;
 
         let weights = definition

@@ -379,7 +379,7 @@ fn update_projectiles(
                             ),
                         );
 
-                        println!("{}", item);
+                        println!("{}", item.unwrap());
                     }
                 }
 

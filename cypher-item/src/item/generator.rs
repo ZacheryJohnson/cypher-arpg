@@ -1,11 +1,15 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use cypher_core::{
-    affix::{database::AffixDefinitionDatabase, definition::AffixGenerationCriteria},
-    affix_pool::{database::AffixPoolDefinitionDatabase, definition::AffixPoolDefinition},
+    affix::{
+        database::AffixDefinitionDatabase,
+        generator::{AffixGenerationCriteria, AffixGenerator},
+    },
+    affix_pool::{
+        database::AffixPoolDefinitionDatabase,
+        definition::AffixPoolDefinition,
+        generator::{AffixPoolGenerationCriteria, AffixPoolGenerator},
+    },
     data::{DataDefinitionDatabase, DataInstanceGenerator},
 };
 
@@ -16,12 +20,15 @@ use super::{definition::ItemDefinition, instance::ItemInstance};
 pub struct ItemDefinitionCriteria {
     /// How many affixes can this item roll? Stored as tuples, where tuple.0 = number of affixes possible, and tuple.1 = affix weight
     pub affix_count_weighting: Vec<(u8 /* count */, u64 /* weight */)>,
+
+    pub affix_generation_criteria: AffixGenerationCriteria,
 }
 
 impl Default for ItemDefinitionCriteria {
     fn default() -> Self {
         Self {
             affix_count_weighting: vec![(1, 500), (2, 300), (3, 100), (4, 20), (5, 5), (6, 1)],
+            affix_generation_criteria: Default::default(),
         }
     }
 }
@@ -39,10 +46,8 @@ impl DataInstanceGenerator<ItemDefinition, ItemInstance, ItemDefinitionCriteria>
         definition: Arc<Mutex<ItemDefinition>>,
         criteria: &ItemDefinitionCriteria,
         dependencies: &Self::DataDependencies,
-    ) -> ItemInstance {
+    ) -> Option<ItemInstance> {
         let (affix_db, affix_pool_db) = dependencies;
-
-        let mut affix_criteria = AffixGenerationCriteria::default();
 
         let distribution = WeightedIndex::new(
             criteria
@@ -71,37 +76,39 @@ impl DataInstanceGenerator<ItemDefinition, ItemInstance, ItemDefinitionCriteria>
             }
         }
 
-        let pool = AffixPoolDefinition::with_members(affix_pool_members);
+        let pool = Arc::new(Mutex::new(AffixPoolDefinition::with_members(
+            affix_pool_members,
+        )));
+        let affix_generator = AffixGenerator {};
+        let affix_pool_generator = AffixPoolGenerator {};
 
         let mut affixes = vec![];
+
         for _ in 0..affix_count {
-            let affix = pool.generate(affix_db.clone(), &affix_criteria);
-            if affix.is_none() {
+            if let Some(affix_def) = affix_pool_generator.generate(
+                pool.clone(),
+                &AffixPoolGenerationCriteria::default(),
+                &(affix_db.clone()),
+            ) {
+                let affix_criteria = &criteria.affix_generation_criteria;
+                let affix = affix_generator.generate(affix_def.clone(), affix_criteria, &());
+
+                if let Some(affix_instance) = affix {
+                    affixes.push(affix_instance);
+                } else {
+                    // TODO: don't continue? this seems bad
+                    continue;
+                }
+            } else {
+                // TODO: don't continue? this seems bad
                 continue;
             }
-
-            let affix_definition = affix_db
-                .lock()
-                .unwrap()
-                .definition(affix.as_ref().unwrap().definition.lock().unwrap().id)
-                .unwrap();
-            if affix_criteria.disallowed_ids.is_none() {
-                affix_criteria.disallowed_ids = Some(HashSet::new());
-            }
-            affix_criteria
-                .disallowed_ids
-                .as_mut()
-                .unwrap()
-                .insert(affix_definition.lock().unwrap().id);
-
-            // TODO: handle None
-            affixes.push(affix.unwrap());
         }
 
-        ItemInstance {
+        Some(ItemInstance {
             definition: definition.clone(),
             affixes,
-        }
+        })
     }
 }
 

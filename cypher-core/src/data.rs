@@ -42,5 +42,5 @@ pub trait DataInstanceGenerator<
         definition: Arc<Mutex<DataDefinitionType>>,
         criteria: &GeneratorCriteriaType,
         databases: &Self::DataDependencies,
-    ) -> DataInstanceType;
+    ) -> Option<DataInstanceType>;
 }

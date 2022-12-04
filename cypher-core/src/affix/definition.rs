@@ -1,23 +1,10 @@
-use super::instance::AffixInstance;
 use super::placement::AffixPlacement;
-use crate::{
-    data::DataDefinition,
-    stat::{Stat, StatList, StatModifier},
-};
-use rand::{prelude::IteratorRandom, thread_rng, Rng};
+use crate::{data::DataDefinition, stat::Stat};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, HashSet},
-    sync::{Arc, Mutex},
-};
+use std::collections::BTreeMap;
 
 pub type AffixDefinitionId = u32;
 pub type AffixTierId = u16;
-
-fn round_to(num: f32, decimal_places: u32) -> f32 {
-    let factor = 10_u32.pow(decimal_places);
-    (num * factor as f32).round() / factor as f32
-}
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct AffixDefinition {
@@ -62,62 +49,6 @@ impl AffixDefinition {
 
         tiers
     }
-
-    pub fn generate(
-        definition: Arc<Mutex<AffixDefinition>>,
-        criteria: &AffixGenerationCriteria,
-    ) -> Option<AffixInstance> {
-        let def = definition.lock().unwrap();
-
-        let (_id, tier) = def
-            .tiers
-            .iter()
-            .filter(|(_id, tier)| {
-                tier.item_level_req.unwrap_or(0) <= criteria.item_level.unwrap_or(0)
-            })
-            .choose(&mut rand::thread_rng())?;
-
-        let stats = tier
-            .stats
-            .iter()
-            .map(|stat| {
-                StatModifier(
-                    stat.stat,
-                    round_to(
-                        thread_rng().gen_range(stat.lower_bound..=stat.upper_bound),
-                        tier.precision_places.unwrap_or(0),
-                    ),
-                )
-            })
-            .collect::<Vec<StatModifier>>();
-
-        let stat_list = StatList::from(stats.as_slice());
-
-        Some(AffixInstance {
-            definition: definition.clone(),
-            tier: tier.tier,
-            stats: stat_list,
-        })
-    }
-}
-
-#[derive(Default, Debug)]
-/// Requirements when generating [Affix]es.
-pub struct AffixGenerationCriteria {
-    /// Which [AffixDefinition]s should be considered, if any.
-    pub allowed_ids: Option<HashSet<AffixDefinitionId>>,
-
-    /// Which [AffixDefinition]s should be excluded, if any.
-    pub disallowed_ids: Option<HashSet<AffixDefinitionId>>,
-
-    /// [AffixPlacement] to force, if any. If not Suffix or Prefix, can be either.
-    pub placement: Option<AffixPlacement>,
-
-    /// Maximum tier of [Affix] to generate, if any.
-    pub maximum_tier: Option<AffixTierId>,
-
-    /// Item level.
-    pub item_level: Option<u8>,
 }
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
