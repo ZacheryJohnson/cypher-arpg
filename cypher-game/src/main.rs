@@ -8,15 +8,19 @@ use std::{
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    ecs::event::ManualEventReader,
     math::Vec3A,
     prelude::*,
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
 use cypher_core::data::{DataDefinitionDatabase, DataInstanceGenerator};
-use cypher_item::loot_pool::{
-    definition::LootPoolDefinition,
-    generator::{LootPoolCriteria, LootPoolItemGenerator},
+use cypher_item::{
+    item::instance::ItemInstance,
+    loot_pool::{
+        definition::LootPoolDefinition,
+        generator::{LootPoolCriteria, LootPoolItemGenerator},
+    },
 };
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};
@@ -29,6 +33,7 @@ fn main() {
         .init_resource::<PlayerSettings>()
         .init_resource::<DataManager>()
         .init_resource::<GameState>()
+        .init_resource::<LootGenerator>()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -37,6 +42,8 @@ fn main() {
         .add_system(handle_input)
         .add_system(adjust_camera_for_mouse_position)
         .add_system(update_projectiles)
+        .add_system(loot_generation)
+        .add_system(show_loot_on_hover)
         .run();
 }
 
@@ -59,6 +66,7 @@ struct HitPoints {
 #[derive(Default, Resource)]
 struct PlayerSettings {
     pub mouse_pan_enabled: bool,
+    pub alt_mode_enabled: bool,
 }
 
 #[derive(Component)]
@@ -69,26 +77,48 @@ struct Projectile {
     pub team_id: u16,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct LootPoolDropper {
     // change this name pls
     pub loot_pool_def: Arc<Mutex<LootPoolDefinition>>,
 }
 
+#[derive(Component)]
+struct ItemDrop {
+    pub item_instance: ItemInstance,
+}
+
+struct DeathEvent {
+    pub loot_pool: Option<LootPoolDropper>,
+    pub position: Vec2,
+}
+
+#[derive(Default, Resource)]
+struct LootGenerator {
+    pub event_reader: ManualEventReader<DeathEvent>,
+    pub loot_pool_generator: LootPoolItemGenerator,
+}
+
 #[derive(Resource)]
 struct GameState {
-    pub loot_pool_generator: LootPoolItemGenerator,
+    pub death_events: Events<DeathEvent>,
 }
 
 impl Default for GameState {
     fn default() -> Self {
         Self {
-            loot_pool_generator: LootPoolItemGenerator,
+            death_events: default(),
         }
     }
 }
 
-fn setup(mut commands: Commands, data_manager: Res<DataManager>) {
+#[derive(Component)]
+struct UiItemText;
+
+#[derive(Component)]
+struct UiItemTextBox;
+
+fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
@@ -116,36 +146,87 @@ fn setup(mut commands: Commands, data_manager: Res<DataManager>) {
         },
     ));
 
-    commands.spawn((
-        HitPoints { health: 10.0 },
-        Collider,
-        Team { id: 2 },
-        LootPoolDropper {
-            loot_pool_def: data_manager
-                .loot_pool_db
-                .lock()
-                .unwrap()
-                .definition(1)
-                .unwrap(),
-        },
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::rgb(1.0, 0.0, 0.3),
-                custom_size: Some(Vec2 { x: 1., y: 1. }),
+    commands
+        .spawn((
+            UiItemTextBox,
+            NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Percent(10.0), Val::Percent(20.0)),
+                    flex_wrap: FlexWrap::Wrap,
+                    flex_direction: FlexDirection::Column,
+                    flex_shrink: 0.03,
+                    display: Display::Flex,
+                    overflow: Overflow::Hidden,
+                    align_items: AlignItems::FlexStart,
+                    ..default()
+                },
+                background_color: Color::rgba(0.15, 0.15, 0.15, 0.0).into(),
                 ..default()
             },
-            transform: Transform {
-                translation: Vec2 { x: 250.0, y: 250.0 }.extend(0.0),
-                scale: Vec3 {
-                    x: 45.,
-                    y: 45.,
-                    z: 1.0,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                UiItemText,
+                TextBundle::from_section(
+                    "foobar",
+                    TextStyle {
+                        font: asset_server.load("fonts/Exo-Regular.ttf"),
+                        font_size: 15.0,
+                        color: Color::WHITE,
+                    },
+                )
+                .with_style(Style {
+                    margin: UiRect::all(Val::Px(5.0)),
+                    ..default()
+                }),
+            ));
+        });
+
+    spawn_enemies(commands, data_manager);
+}
+
+fn spawn_enemies(mut commands: Commands, data_manager: Res<DataManager>) {
+    let positions = vec![
+        Vec2 {
+            x: -250.0,
+            y: 250.0,
+        },
+        Vec2 { x: 0.0, y: 250.0 },
+        Vec2 { x: 250.0, y: 250.0 },
+    ];
+
+    for position in positions {
+        commands.spawn((
+            HitPoints { health: 10.0 },
+            Collider,
+            Team { id: 2 },
+            LootPoolDropper {
+                loot_pool_def: data_manager
+                    .loot_pool_db
+                    .lock()
+                    .unwrap()
+                    .definition(1)
+                    .unwrap(),
+            },
+            SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgb(1.0, 0.0, 0.3),
+                    custom_size: Some(Vec2 { x: 1., y: 1. }),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: position.extend(0.0),
+                    scale: Vec3 {
+                        x: 45.,
+                        y: 45.,
+                        z: 1.0,
+                    },
+                    ..default()
                 },
                 ..default()
             },
-            ..default()
-        },
-    ));
+        ));
+    }
 }
 
 fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -201,6 +282,8 @@ fn handle_input(
     } else if keyboard_input.pressed(KeyCode::D) {
         trans.0 += delta;
     }
+
+    settings.alt_mode_enabled = keyboard_input.pressed(KeyCode::LAlt);
 
     let new_transform = (
         player_transform.translation.x + trans.0,
@@ -332,8 +415,7 @@ fn update_projectiles(
         (With<Collider>, Without<Projectile>),
     >,
     time: Res<Time>,
-    data_manager: Res<DataManager>,
-    game_state: Res<GameState>,
+    mut game_state: ResMut<GameState>,
 ) {
     for (mut projectile_transform, mut projectile, entity) in &mut projectiles {
         let forward = -projectile_transform.local_y();
@@ -366,25 +448,143 @@ fn update_projectiles(
                 if hit_points.health <= 0.0 {
                     commands.entity(collider_entity).despawn();
 
-                    // eventually do something with this
-                    if let Some(loot) = maybe_loot {
-                        let def = loot.loot_pool_def.clone();
-                        let item = game_state.loot_pool_generator.generate(
-                            def,
-                            &LootPoolCriteria {},
-                            &(
-                                data_manager.affix_db.clone(),
-                                data_manager.affix_pool_db.clone(),
-                                data_manager.item_db.clone(),
-                            ),
-                        );
-
-                        println!("{}", item.unwrap());
-                    }
+                    game_state.death_events.send(DeathEvent {
+                        loot_pool: maybe_loot.map(|loot| loot.to_owned()),
+                        position: Vec2 {
+                            x: collidable_transform.translation.x,
+                            y: collidable_transform.translation.y,
+                        },
+                    });
                 }
 
                 commands.entity(entity).despawn();
                 continue;
+            }
+        }
+    }
+}
+
+fn loot_generation(
+    mut commands: Commands,
+    mut game_state: ResMut<GameState>,
+    mut generator: ResMut<LootGenerator>,
+    data_manager: Res<DataManager>,
+) {
+    game_state.death_events.update();
+
+    let loot_pool_generator = generator.loot_pool_generator.clone();
+    for death_event in generator.event_reader.iter(&game_state.death_events) {
+        let dropper = death_event.loot_pool.as_ref().unwrap();
+        let item = loot_pool_generator.generate(
+            dropper.loot_pool_def.clone(),
+            &LootPoolCriteria {},
+            &(
+                data_manager.affix_db.clone(),
+                data_manager.affix_pool_db.clone(),
+                data_manager.item_db.clone(),
+            ),
+        );
+
+        if let Some(item_instance) = item {
+            commands.spawn((
+                ItemDrop { item_instance },
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::rgb(1.0, 0.93, 0.0),
+                        custom_size: Some(Vec2 { x: 1., y: 1. }),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: death_event.position.extend(0.0),
+                        scale: Vec3 {
+                            x: 10.0,
+                            y: 10.0,
+                            z: 1.0,
+                        },
+                        ..default()
+                    },
+                    ..default()
+                },
+            ));
+        }
+    }
+}
+
+fn show_loot_on_hover(
+    mut ui_elements: Query<&mut BackgroundColor, With<UiItemTextBox>>,
+    mut ui_text: Query<&mut Text, With<UiItemText>>,
+    mut camera_query: Query<(&Camera, &GlobalTransform)>,
+    dropped_items: Query<(&ItemDrop, &Transform)>,
+    windows: Res<Windows>,
+    asset_server: Res<AssetServer>,
+    player_settings: Res<PlayerSettings>,
+) {
+    let mut color = ui_elements.get_single_mut().unwrap();
+    let mut text = ui_text.get_single_mut().unwrap();
+    color.0 = Color::rgba(0.15, 0.15, 0.15, 0.0);
+    text.sections.clear();
+
+    if let Ok((camera, camera_transform)) = camera_query.get_single_mut() {
+        let window = if let RenderTarget::Window(id) = camera.target {
+            windows.get(id).unwrap()
+        } else {
+            windows.get_primary().unwrap()
+        };
+
+        if let Some(cursor_position) = window.cursor_position() {
+            // get the size of the window
+            let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+
+            // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
+            let ndc = (cursor_position / window_size) * 2.0 - Vec2::ONE;
+
+            // matrix for undoing the projection and camera transform
+            let ndc_to_world =
+                camera_transform.compute_matrix() * camera.projection_matrix().inverse();
+
+            // use it to convert ndc to world-space coordinates
+            let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
+
+            for (item_drop, item_transform) in &dropped_items {
+                if collide(
+                    world_pos,
+                    Vec2 { x: 10.0, y: 10.0 },
+                    item_transform.translation,
+                    Vec2 { x: 10.0, y: 10.0 },
+                )
+                .is_some()
+                {
+                    color.0 = Color::rgba(0.15, 0.15, 0.15, 1.0);
+                    text.sections.push(TextSection {
+                        value: item_drop
+                            .item_instance
+                            .definition
+                            .lock()
+                            .unwrap()
+                            .name
+                            .clone(),
+                        style: TextStyle {
+                            font: asset_server.load("fonts/Exo-Regular.ttf"),
+                            font_size: 15.0,
+                            color: Color::WHITE,
+                        },
+                    });
+                    for affix in &item_drop.item_instance.affixes {
+                        let mut affix_str = "\n".to_owned() + &affix.stats.to_string();
+                        if player_settings.alt_mode_enabled {
+                            affix_str += format!(" (T{})", affix.tier).as_str();
+                        }
+                        text.sections.push(TextSection {
+                            value: affix_str,
+                            style: TextStyle {
+                                font: asset_server.load("fonts/Exo-Regular.ttf"),
+                                font_size: 15.0,
+                                color: Color::GOLD,
+                            },
+                        })
+                    }
+                    break;
+                }
             }
         }
     }

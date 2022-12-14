@@ -18,6 +18,7 @@ use super::definition::LootPoolDefinition;
 #[derive(Default)]
 pub struct LootPoolCriteria {}
 
+#[derive(Clone, Default)]
 pub struct LootPoolItemGenerator;
 
 impl DataInstanceGenerator<LootPoolDefinition, ItemInstance, LootPoolCriteria>
