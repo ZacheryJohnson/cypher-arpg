@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use uuid::{self, Uuid};
 
 use cypher_core::{
     affix::{
@@ -106,6 +107,7 @@ impl DataInstanceGenerator<ItemDefinition, ItemInstance, ItemDefinitionCriteria>
         }
 
         Some(ItemInstance {
+            guid: Uuid::new_v4().to_string(),
             definition: definition.clone(),
             affixes,
         })

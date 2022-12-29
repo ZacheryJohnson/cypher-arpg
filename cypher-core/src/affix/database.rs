@@ -43,8 +43,8 @@ impl DataDefinitionDatabase<AffixDefinition> for AffixDefinitionDatabase {
     fn write_to<S: Into<String>>(&self, path: S) {
         let definition_clones = self
             .affixes
-            .iter()
-            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .values()
+            .map(|def| def.lock().unwrap().to_owned())
             .collect::<Vec<AffixDefinition>>();
 
         let serialized = serde_json::ser::to_string(&definition_clones)
@@ -68,7 +68,7 @@ impl DataDefinitionDatabase<AffixDefinition> for AffixDefinitionDatabase {
     }
 
     fn definitions(&self) -> Vec<Arc<Mutex<AffixDefinition>>> {
-        self.affixes.iter().map(|(_, def)| def.to_owned()).collect()
+        self.affixes.values().map(|def| def.to_owned()).collect()
     }
 
     fn add_definition(&mut self, definition: AffixDefinition) {

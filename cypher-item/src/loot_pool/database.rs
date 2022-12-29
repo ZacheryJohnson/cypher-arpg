@@ -55,8 +55,8 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
     fn write_to<S: Into<String>>(&self, path: S) {
         let definition_clones = self
             .pools
-            .iter()
-            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .values()
+            .map(|def| def.lock().unwrap().to_owned())
             .collect::<Vec<LootPoolDefinition>>();
 
         let serialized = serde_json::ser::to_string(&definition_clones)
@@ -69,15 +69,15 @@ impl DataDefinitionDatabase<LootPoolDefinition> for LootPoolDefinitionDatabase {
         !self.pools.is_empty()
             && self
                 .pools
-                .iter()
-                .all(|(_id, pool_def)| pool_def.lock().unwrap().validate())
+                .values()
+                .all(|pool_def| pool_def.lock().unwrap().validate())
     }
 
     fn definition(&self, id: LootPoolDefinitionId) -> Option<Arc<Mutex<LootPoolDefinition>>> {
         self.pools.get(&id).map(|arc| arc.to_owned())
     }
     fn definitions(&self) -> Vec<Arc<Mutex<LootPoolDefinition>>> {
-        self.pools.iter().map(|(_, def)| def.to_owned()).collect()
+        self.pools.values().map(|def| def.to_owned()).collect()
     }
 
     fn add_definition(&mut self, definition: LootPoolDefinition) {

@@ -9,6 +9,8 @@ use super::definition::ItemDefinition;
 
 #[derive(Debug)]
 pub struct ItemInstance {
+    pub guid: String,
+
     pub definition: Arc<Mutex<ItemDefinition>>,
 
     pub affixes: Vec<AffixInstance>,

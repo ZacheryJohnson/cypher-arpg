@@ -54,8 +54,8 @@ impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
     fn write_to<S: Into<String>>(&self, path: S) {
         let definition_clones = self
             .items
-            .iter()
-            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .values()
+            .map(|def| def.lock().unwrap().to_owned())
             .collect::<Vec<ItemDefinition>>();
 
         let serialized = serde_json::ser::to_string(&definition_clones)
@@ -68,8 +68,8 @@ impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
         !self.items.is_empty()
             && self
                 .items
-                .iter()
-                .all(|(_id, item_def)| item_def.lock().unwrap().validate())
+                .values()
+                .all(|item_def| item_def.lock().unwrap().validate())
     }
 
     fn definition(&self, id: ItemDefinitionId) -> Option<Arc<Mutex<ItemDefinition>>> {
@@ -77,7 +77,7 @@ impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
     }
 
     fn definitions(&self) -> Vec<Arc<Mutex<ItemDefinition>>> {
-        self.items.iter().map(|(_, def)| def.to_owned()).collect()
+        self.items.values().map(|def| def.to_owned()).collect()
     }
 
     fn add_definition(&mut self, definition: ItemDefinition) {

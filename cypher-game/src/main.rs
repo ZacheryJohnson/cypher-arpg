@@ -377,7 +377,7 @@ fn adjust_camera_for_mouse_position(
             }
 
             // get the size of the window
-            let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+            let window_size = Vec2::new(window.width(), window.height());
 
             // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
             let ndc = (cursor_position / window_size) * 2.0 - Vec2::ONE;
@@ -533,7 +533,7 @@ fn show_loot_on_hover(
 
         if let Some(cursor_position) = window.cursor_position() {
             // get the size of the window
-            let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+            let window_size = Vec2::new(window.width(), window.height());
 
             // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
             let ndc = (cursor_position / window_size) * 2.0 - Vec2::ONE;

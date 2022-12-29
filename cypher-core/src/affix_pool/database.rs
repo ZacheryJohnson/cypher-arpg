@@ -37,8 +37,8 @@ impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase
     fn write_to<S: Into<String>>(&self, path: S) {
         let definition_clones = self
             .affix_pools
-            .iter()
-            .map(|(_, def)| def.lock().unwrap().to_owned())
+            .values()
+            .map(|def| def.lock().unwrap().to_owned())
             .collect::<Vec<AffixPoolDefinition>>();
 
         let serialized = serde_json::ser::to_string(&definition_clones)
@@ -61,8 +61,8 @@ impl DataDefinitionDatabase<AffixPoolDefinition> for AffixPoolDefinitionDatabase
 
     fn definitions(&self) -> Vec<Arc<Mutex<AffixPoolDefinition>>> {
         self.affix_pools
-            .iter()
-            .map(|(_, def)| def.to_owned())
+            .values()
+            .map(|def| def.to_owned())
             .collect()
     }
 
