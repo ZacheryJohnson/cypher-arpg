@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use cypher_core::stat::StatList;
 use cypher_item::item::{
     classification::{ItemClassification::Equippable, ItemEquipSlot},
@@ -71,6 +73,26 @@ impl Equipment {
         }
 
         stat_list
+    }
+}
+
+impl Display for Equipment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let items = vec![
+            &self.head,
+            &self.left_arm,
+            &self.right_arm,
+            &self.body,
+            &self.belt,
+            &self.legs,
+            &self.boots,
+        ];
+
+        for item in items.into_iter().flatten() {
+            write!(f, "{}", item)?;
+        }
+
+        Ok(())
     }
 }
 

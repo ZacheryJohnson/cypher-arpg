@@ -3,9 +3,9 @@ use cypher_core::stat::{Stat, StatList};
 use crate::equipment::Equipment;
 
 pub struct Character {
-    stats: Vec<StatList>,
+    pub stats: Vec<StatList>,
 
-    equipment: Equipment,
+    pub equipment: Equipment,
 
     // TODO: refactor
     current_health: u32,
@@ -48,6 +48,7 @@ impl Character {
 }
 
 #[cfg(test)]
+#[allow(unused_must_use)]
 mod tests {
     use std::{
         collections::BTreeMap,

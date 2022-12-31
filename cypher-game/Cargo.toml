@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 cypher-core = { path = "../cypher-core"}
+cypher-character = { path = "../cypher-character"}
 cypher-item = { path = "../cypher-item"}
 cypher-world = { path = "../cypher-world" }
 

@@ -2,8 +2,9 @@
 #![allow(clippy::type_complexity)]
 
 use std::{
+    collections::HashMap,
     f32::consts::FRAC_PI_2,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
 };
 
 use bevy::{
@@ -14,7 +15,11 @@ use bevy::{
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
-use cypher_core::data::{DataDefinitionDatabase, DataInstanceGenerator};
+use cypher_character::character::Character;
+use cypher_core::{
+    data::{DataDefinitionDatabase, DataInstanceGenerator},
+    stat::{Stat, StatList, StatModifier},
+};
 use cypher_item::{
     item::instance::ItemInstance,
     loot_pool::{
@@ -43,7 +48,8 @@ fn main() {
         .add_system(adjust_camera_for_mouse_position)
         .add_system(update_projectiles)
         .add_system(loot_generation)
-        .add_system(show_loot_on_hover)
+        .add_system(pickup_dropped_item_under_cursor)
+        .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
         .run();
 }
 
@@ -70,6 +76,19 @@ struct PlayerSettings {
 }
 
 #[derive(Component)]
+struct CharacterComponent {
+    pub character: Character,
+}
+
+impl Default for CharacterComponent {
+    fn default() -> Self {
+        Self {
+            character: Character::new(vec![StatList::from(&[StatModifier(Stat::Health, 10.)])]),
+        }
+    }
+}
+
+#[derive(Component)]
 struct Projectile {
     pub move_speed: f32,
     pub lifetime: f32,
@@ -85,7 +104,7 @@ struct LootPoolDropper {
 
 #[derive(Component)]
 struct ItemDrop {
-    pub item_instance: ItemInstance,
+    pub item_instance: Weak<Mutex<ItemInstance>>,
 }
 
 struct DeathEvent {
@@ -101,12 +120,15 @@ struct LootGenerator {
 
 #[derive(Resource)]
 struct GameState {
+    pub item_drops: HashMap<Entity, Arc<Mutex<ItemInstance>>>,
+
     pub death_events: Events<DeathEvent>,
 }
 
 impl Default for GameState {
     fn default() -> Self {
         Self {
+            item_drops: HashMap::new(),
             death_events: default(),
         }
     }
@@ -122,6 +144,7 @@ fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: R
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
+        CharacterComponent::default(),
         WorldEntity,
         CameraFollow,
         HitPoints { health: 10.0 },
@@ -259,18 +282,24 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_input(
     mut commands: Commands,
-    mut players: Query<&mut Transform, With<WorldEntity>>,
+    mut players: Query<(&mut Transform, &CharacterComponent), With<WorldEntity>>,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     mut settings: ResMut<PlayerSettings>,
     collidables: Query<&Transform, (With<Collider>, Without<WorldEntity>)>,
 ) {
-    let mut player_transform = players.single_mut();
+    let (mut player_transform, character) = players.single_mut();
 
     let mut trans = (0.0, 0.0);
-    const MOVE_SPEED: usize = 100;
-    let delta = time.delta().as_secs_f32() * MOVE_SPEED as f32;
+    const BASE_MOVE_SPEED: f32 = 100.;
+    let move_speed = BASE_MOVE_SPEED
+        + character
+            .character
+            .stats()
+            .get_stat(&Stat::MoveSpeed)
+            .unwrap_or(&0.);
+    let delta = time.delta().as_secs_f32() * move_speed;
 
     if keyboard_input.pressed(KeyCode::W) {
         trans.1 += delta;
@@ -473,7 +502,11 @@ fn loot_generation(
     game_state.death_events.update();
 
     let loot_pool_generator = generator.loot_pool_generator.clone();
-    for death_event in generator.event_reader.iter(&game_state.death_events) {
+    let death_events = &game_state.death_events;
+
+    let mut maybe_item_arc: Option<(Arc<Mutex<ItemInstance>>, Entity)> = None;
+
+    for death_event in generator.event_reader.iter(death_events) {
         let dropper = death_event.loot_pool.as_ref().unwrap();
         let item = loot_pool_generator.generate(
             dropper.loot_pool_def.clone(),
@@ -486,8 +519,12 @@ fn loot_generation(
         );
 
         if let Some(item_instance) = item {
-            commands.spawn((
-                ItemDrop { item_instance },
+            let item_arc = Arc::new(Mutex::new(item_instance));
+
+            let new_entity = commands.spawn((
+                ItemDrop {
+                    item_instance: Arc::downgrade(&item_arc),
+                },
                 SpriteBundle {
                     sprite: Sprite {
                         color: Color::rgb(1.0, 0.93, 0.0),
@@ -506,7 +543,13 @@ fn loot_generation(
                     ..default()
                 },
             ));
+
+            maybe_item_arc = Some((item_arc, new_entity.id()));
         }
+    }
+
+    if let Some(item) = maybe_item_arc {
+        game_state.item_drops.insert(item.1, item.0);
     }
 }
 
@@ -554,10 +597,15 @@ fn show_loot_on_hover(
                 )
                 .is_some()
                 {
+                    let Some(item_instance) = item_drop.item_instance.upgrade() else {
+                        break;
+                    };
+
                     color.0 = Color::rgba(0.15, 0.15, 0.15, 1.0);
                     text.sections.push(TextSection {
-                        value: item_drop
-                            .item_instance
+                        value: item_instance
+                            .lock()
+                            .unwrap()
                             .definition
                             .lock()
                             .unwrap()
@@ -569,7 +617,7 @@ fn show_loot_on_hover(
                             color: Color::WHITE,
                         },
                     });
-                    for affix in &item_drop.item_instance.affixes {
+                    for affix in &item_instance.lock().unwrap().affixes {
                         let mut affix_str = "\n".to_owned() + &affix.stats.to_string();
                         if player_settings.alt_mode_enabled {
                             affix_str += format!(" (T{})", affix.tier).as_str();
@@ -584,6 +632,75 @@ fn show_loot_on_hover(
                         })
                     }
                     break;
+                }
+            }
+        }
+    }
+}
+
+fn pickup_dropped_item_under_cursor(
+    mut commands: Commands,
+    mut camera_query: Query<(&Camera, &GlobalTransform)>,
+    mut character_query: Query<&mut CharacterComponent>, // ZJ-TODO: this should only get the player character, not all characters
+    dropped_items: Query<(Entity, &Transform), With<ItemDrop>>,
+    keyboard_input: Res<Input<KeyCode>>,
+    windows: Res<Windows>,
+    mut game_state: ResMut<GameState>,
+) {
+    if !keyboard_input.pressed(KeyCode::E) {
+        return;
+    }
+
+    if let Ok((camera, camera_transform)) = camera_query.get_single_mut() {
+        let window = if let RenderTarget::Window(id) = camera.target {
+            windows.get(id).unwrap()
+        } else {
+            windows.get_primary().unwrap()
+        };
+
+        if let Some(cursor_position) = window.cursor_position() {
+            // get the size of the window
+            let window_size = Vec2::new(window.width(), window.height());
+
+            // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
+            let ndc = (cursor_position / window_size) * 2.0 - Vec2::ONE;
+
+            // matrix for undoing the projection and camera transform
+            let ndc_to_world =
+                camera_transform.compute_matrix() * camera.projection_matrix().inverse();
+
+            // use it to convert ndc to world-space coordinates
+            let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
+
+            for (entity, item_transform) in &dropped_items {
+                if collide(
+                    world_pos,
+                    Vec2 { x: 10.0, y: 10.0 },
+                    item_transform.translation,
+                    Vec2 { x: 10.0, y: 10.0 },
+                )
+                .is_some()
+                {
+                    let mut character = character_query.single_mut();
+
+                    // Remove existing components that reference the item
+                    let item_instance = game_state.item_drops.remove(&entity).unwrap();
+                    commands.entity(entity).despawn_recursive();
+
+                    // Knowing that we have the only instance, unwrap the Arc<Mutex<ItemInstance>> to move out the ItemInstance
+                    let item = Arc::try_unwrap(item_instance)
+                        .unwrap()
+                        .into_inner()
+                        .unwrap();
+                    character
+                        .character
+                        .equipment
+                        .equip(item)
+                        .expect("ZJ-TODO: UI to show failure to equip");
+
+                    println!("{}", character.character.equipment);
+
+                    return;
                 }
             }
         }

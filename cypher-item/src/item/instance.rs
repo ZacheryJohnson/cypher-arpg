@@ -27,7 +27,7 @@ impl Display for ItemInstance {
 
         write!(
             f,
-            "{}:\n\t{:?}\n\t{:?}",
+            "{}:\n\t{:?}\n\t{:?}\n",
             definition.name.as_str(),
             definition.classification,
             buffer.as_str()

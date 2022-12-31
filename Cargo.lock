@@ -1436,6 +1436,7 @@ name = "cypher-game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "cypher-character",
  "cypher-core",
  "cypher-item",
  "cypher-world",
