@@ -76,6 +76,9 @@ struct PlayerSettings {
 }
 
 #[derive(Component)]
+struct PlayerController;
+
+#[derive(Component)]
 struct CharacterComponent {
     pub character: Character,
 }
@@ -144,6 +147,7 @@ fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: R
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn((
+        PlayerController,
         CharacterComponent::default(),
         WorldEntity,
         CameraFollow,
@@ -282,7 +286,10 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_input(
     mut commands: Commands,
-    mut players: Query<(&mut Transform, &CharacterComponent), With<WorldEntity>>,
+    mut players: Query<
+        (&mut Transform, &CharacterComponent),
+        (With<WorldEntity>, With<PlayerController>),
+    >,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
@@ -641,7 +648,7 @@ fn show_loot_on_hover(
 fn pickup_dropped_item_under_cursor(
     mut commands: Commands,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
-    mut character_query: Query<&mut CharacterComponent>, // ZJ-TODO: this should only get the player character, not all characters
+    mut character_query: Query<&mut CharacterComponent, With<PlayerController>>,
     dropped_items: Query<(Entity, &Transform), With<ItemDrop>>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
