@@ -3,6 +3,7 @@ members = [
     "cypher-core",
     "cypher-item",
     "cypher-character",
+    "cypher-net",
 
     "cypher-data-editor",
 
