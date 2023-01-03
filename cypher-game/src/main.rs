@@ -27,6 +27,7 @@ use cypher_item::{
         generator::{LootPoolCriteria, LootPoolItemGenerator},
     },
 };
+use cypher_net::server::Server;
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -39,6 +40,7 @@ fn main() {
         .init_resource::<DataManager>()
         .init_resource::<GameState>()
         .init_resource::<LootGenerator>()
+        .init_resource::<GameServer>()
         .add_plugins(DefaultPlugins)
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
@@ -50,7 +52,14 @@ fn main() {
         .add_system(loot_generation)
         .add_system(pickup_dropped_item_under_cursor)
         .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
+        .add_system(get_pending_messages)
+        .add_system(todo_hack)
         .run();
+}
+
+#[derive(Default, Resource)]
+struct GameServer {
+    pub server: Server,
 }
 
 #[derive(Component)]
@@ -711,5 +720,18 @@ fn pickup_dropped_item_under_cursor(
                 }
             }
         }
+    }
+}
+
+fn todo_hack(mut server: ResMut<GameServer>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::T) {
+        server.server.hack_remove_pls();
+    }
+}
+
+fn get_pending_messages(mut server: ResMut<GameServer>) {
+    let messages = server.server.get_messages();
+    if !messages.is_empty() {
+        println!("Have messages! {:?}", messages);
     }
 }

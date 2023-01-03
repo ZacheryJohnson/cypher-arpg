@@ -1465,6 +1465,7 @@ dependencies = [
  "cypher-character",
  "cypher-core",
  "cypher-item",
+ "cypher-net",
  "cypher-world",
  "rand",
 ]
