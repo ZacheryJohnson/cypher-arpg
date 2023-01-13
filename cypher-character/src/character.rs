@@ -57,7 +57,9 @@ mod tests {
 
     use cypher_core::{
         affix::{
-            definition::{AffixDefinition, AffixDefinitionStat, AffixDefinitionTier},
+            definition::{
+                AffixDefinition, AffixDefinitionStat, AffixDefinitionTier, AffixDefinitionValue,
+            },
             instance::AffixInstance,
             placement::AffixPlacement,
         },
@@ -110,8 +112,7 @@ mod tests {
                 tier: 1,
                 stats: vec![AffixDefinitionStat {
                     stat: Stat::Complexity,
-                    lower_bound: 1.,
-                    upper_bound: 3.,
+                    value: AffixDefinitionValue::Range(1., 3.),
                 }],
                 item_level_req: None,
                 precision_places: None,

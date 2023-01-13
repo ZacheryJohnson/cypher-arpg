@@ -71,20 +71,30 @@ impl AffixDefinitionTier {
 }
 
 #[derive(Clone, Deserialize, Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AffixDefinitionValue {
+    Exact(f32),
+    Range(f32, f32),
+}
+
+impl std::fmt::Display for AffixDefinitionValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exact(val) => write!(f, "{val}"),
+            Self::Range(lower, upper) => write!(f, "{lower}-{upper}"),
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Debug, Serialize)]
 pub struct AffixDefinitionStat {
     pub stat: Stat,
 
-    pub lower_bound: f32,
-
-    pub upper_bound: f32,
+    pub value: AffixDefinitionValue,
 }
 
 impl std::fmt::Display for AffixDefinitionStat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} [{}-{}]",
-            self.stat, self.lower_bound, self.upper_bound
-        )
+        write!(f, "{:?} [{}]", self.stat, self.value)
     }
 }

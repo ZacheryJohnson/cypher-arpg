@@ -54,7 +54,12 @@ impl DataInstanceGenerator<AffixDefinition, AffixInstance, AffixGenerationCriter
                 StatModifier(
                     stat.stat,
                     round_to(
-                        thread_rng().gen_range(stat.lower_bound..=stat.upper_bound),
+                        match stat.value {
+                            super::definition::AffixDefinitionValue::Exact(val) => val,
+                            super::definition::AffixDefinitionValue::Range(lower, upper) => {
+                                thread_rng().gen_range(lower..upper)
+                            }
+                        },
                         tier.precision_places.unwrap_or(0),
                     ),
                 )

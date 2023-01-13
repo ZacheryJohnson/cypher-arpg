@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use cypher_core::affix::database::AffixDefinitionDatabase;
-use cypher_core::affix::definition::{AffixDefinition, AffixDefinitionStat, AffixDefinitionTier};
+use cypher_core::affix::definition::{
+    AffixDefinition, AffixDefinitionStat, AffixDefinitionTier, AffixDefinitionValue,
+};
 use cypher_core::affix::placement::AffixPlacement;
 use cypher_core::affix_pool::database::AffixPoolDefinitionDatabase;
 use cypher_core::affix_pool::definition::AffixPoolDefinition;
@@ -259,8 +261,7 @@ impl DataEditorApp {
                                     if ui.button("Add Stat").clicked() {
                                         tier_def.stats.push(AffixDefinitionStat {
                                             stat: Stat::Resolve, // TODO: invalid?
-                                            lower_bound: 0.,
-                                            upper_bound: 0.,
+                                            value: AffixDefinitionValue::Range(0., 0.),
                                         });
                                     }
 
@@ -270,42 +271,58 @@ impl DataEditorApp {
                                 });
                                 for stat in &mut tier_def.stats {
                                     let selected_stat = &mut stat.stat;
-                                    egui::ComboBox::from_id_source(format!(
-                                        "Stat_{}-{}",
-                                        stat.lower_bound, stat.upper_bound
-                                    ))
-                                    .selected_text(format!("{:?}", selected_stat))
-                                    .show_ui(ui, |ui| {
-                                        for stat_variant in Stat::iter() {
-                                            ui.selectable_value(
-                                                selected_stat,
-                                                stat_variant,
-                                                format!("{:?}", stat_variant),
-                                            );
-                                        }
-                                    });
+                                    egui::ComboBox::from_id_source(format!("Stat_{}", stat.value))
+                                        .selected_text(format!("{:?}", selected_stat))
+                                        .show_ui(ui, |ui| {
+                                            for stat_variant in Stat::iter() {
+                                                ui.selectable_value(
+                                                    selected_stat,
+                                                    stat_variant,
+                                                    format!("{:?}", stat_variant),
+                                                );
+                                            }
+                                        });
 
                                     ui.horizontal(|ui| {
-                                        ui.add(
-                                            egui::Slider::new(
-                                                &mut stat.lower_bound,
-                                                (stat.upper_bound - 100_f32)..=stat.upper_bound,
-                                            )
-                                            .text("Lower Bound")
-                                            .fixed_decimals(
-                                                tier_def.precision_places.unwrap_or(0) as usize
-                                            ),
-                                        );
-                                        ui.add(
-                                            egui::Slider::new(
-                                                &mut stat.upper_bound,
-                                                stat.lower_bound..=(stat.lower_bound + 100_f32),
-                                            )
-                                            .text("Upper Bound")
-                                            .fixed_decimals(
-                                                tier_def.precision_places.unwrap_or(0) as usize
-                                            ),
-                                        );
+                                        match &mut stat.value {
+                                            AffixDefinitionValue::Exact(val) => {
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        val,
+                                                        (*val - 50_f32)..=(*val + 50_f32),
+                                                    )
+                                                    .text("Lower Bound")
+                                                    .fixed_decimals(
+                                                        tier_def.precision_places.unwrap_or(0)
+                                                            as usize,
+                                                    ),
+                                                );
+                                            }
+                                            AffixDefinitionValue::Range(lower, upper) => {
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        lower,
+                                                        (*upper - 100_f32)..=*upper,
+                                                    )
+                                                    .text("Lower Bound")
+                                                    .fixed_decimals(
+                                                        tier_def.precision_places.unwrap_or(0)
+                                                            as usize,
+                                                    ),
+                                                );
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        upper,
+                                                        *lower..=(*lower + 100_f32),
+                                                    )
+                                                    .text("Upper Bound")
+                                                    .fixed_decimals(
+                                                        tier_def.precision_places.unwrap_or(0)
+                                                            as usize,
+                                                    ),
+                                                );
+                                            }
+                                        };
                                     });
                                 }
                                 ui.horizontal(|ui| {
