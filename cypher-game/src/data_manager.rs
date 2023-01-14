@@ -46,7 +46,7 @@ impl Default for DataManager {
         item_db_path.push("item.json");
         let item_db = Arc::new(Mutex::new(ItemDefinitionDatabase::load_from(
             item_db_path.to_str().unwrap(),
-            &affix_pool_db,
+            &(affix_db.clone(), affix_pool_db.clone()),
         )));
 
         let mut loot_pool_db_path = std::env::current_dir().unwrap();

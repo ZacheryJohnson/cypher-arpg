@@ -4,6 +4,7 @@ use std::{
 };
 
 use cypher_core::{
+    affix::database::AffixDefinitionDatabase,
     affix_pool::database::AffixPoolDefinitionDatabase,
     data::{DataDefinition, DataDefinitionDatabase},
 };
@@ -19,25 +20,34 @@ pub struct ItemDefinitionDatabase {
 }
 
 impl ItemDefinitionDatabase {
-    pub fn initialize(affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>) -> Self {
+    pub fn initialize(
+        affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
+        affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
+    ) -> Self {
         let mut path = std::env::current_dir().unwrap();
         path.push("..");
         path.push("cypher-item");
         path.push("data");
         path.push("item.json");
 
-        Self::load_from(path.to_str().unwrap(), &affix_pool_db)
+        Self::load_from(path.to_str().unwrap(), &(affix_db, affix_pool_db))
     }
 }
 
 impl DataDefinitionDatabase<ItemDefinition> for ItemDefinitionDatabase {
-    type DataDependencies = Arc<Mutex<AffixPoolDefinitionDatabase>>;
+    type DataDependencies = (
+        Arc<Mutex<AffixDefinitionDatabase>>,
+        Arc<Mutex<AffixPoolDefinitionDatabase>>,
+    );
 
     fn load_from<S: Into<String>>(path: S, dependencies: &Self::DataDependencies) -> Self {
         let item_file = String::from_utf8(std::fs::read(path.into()).unwrap()).unwrap();
 
+        let (affix_db, affix_pool_db) = dependencies;
+
         let item_def_deserializer = ItemDefinitionDatabaseDeserializer {
-            affix_pool_db: dependencies.clone(),
+            affix_db: affix_db.clone(),
+            affix_pool_db: affix_pool_db.clone(),
         };
         let definitions: Vec<ItemDefinition> = item_def_deserializer
             .deserialize(&mut serde_json::Deserializer::from_str(item_file.as_str()))
@@ -100,6 +110,9 @@ mod tests {
         let affix_pool_db = Arc::new(Mutex::new(AffixPoolDefinitionDatabase::initialize(
             affix_db.clone(),
         )));
-        let _item_db = Arc::new(ItemDefinitionDatabase::initialize(affix_pool_db.clone()));
+        let _item_db = Arc::new(ItemDefinitionDatabase::initialize(
+            affix_db.clone(),
+            affix_pool_db.clone(),
+        ));
     }
 }

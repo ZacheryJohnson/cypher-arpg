@@ -21,7 +21,7 @@ use cypher_core::{
     stat::{Stat, StatList, StatModifier},
 };
 use cypher_item::{
-    item::instance::ItemInstance,
+    item::instance::{ItemInstance, ItemInstanceRarityTier},
     loot_pool::{
         definition::LootPoolDefinition,
         generator::{LootPoolCriteria, LootPoolItemGenerator},
@@ -536,6 +536,7 @@ fn loot_generation(
 
         if let Some(item_instance) = item {
             let item_arc = Arc::new(Mutex::new(item_instance));
+            let rarity = item_arc.lock().unwrap().rarity();
 
             let new_entity = commands.spawn((
                 ItemDrop {
@@ -543,7 +544,12 @@ fn loot_generation(
                 },
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::rgb(1.0, 0.93, 0.0),
+                        color: match rarity {
+                            ItemInstanceRarityTier::Common => Color::hex("aeb5b0").unwrap(), // off-gray
+                            ItemInstanceRarityTier::Uncommon => Color::hex("077d1b").unwrap(), // green
+                            ItemInstanceRarityTier::Rare => Color::hex("1f4acc").unwrap(), // blue
+                            ItemInstanceRarityTier::Fabled => Color::hex("52288a").unwrap(), // purple
+                        },
                         custom_size: Some(Vec2 { x: 1., y: 1. }),
                         ..default()
                     },

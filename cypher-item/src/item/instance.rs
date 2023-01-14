@@ -16,6 +16,36 @@ pub struct ItemInstance {
     pub affixes: Vec<AffixInstance>,
 }
 
+/// Rarity is a misnomer in our implementation, but is the standard for the genre
+pub enum ItemInstanceRarityTier {
+    /// An item with at most one prefix and one suffix
+    Common,
+
+    /// An item with at most two prefixes and two suffixes
+    Uncommon,
+
+    /// An item with at most three prefixes and three suffixes
+    Rare,
+
+    /// An item that possesses fixed affixes
+    Fabled,
+}
+
+impl ItemInstance {
+    pub fn rarity(&self) -> ItemInstanceRarityTier {
+        if !self.definition.lock().unwrap().fixed_affixes.is_empty() {
+            return ItemInstanceRarityTier::Fabled;
+        }
+
+        match self.affixes.len() {
+            0..=2 => ItemInstanceRarityTier::Common,
+            3..=4 => ItemInstanceRarityTier::Uncommon,
+            5..=6 => ItemInstanceRarityTier::Rare,
+            _ => panic!("abnormal affix count found"),
+        }
+    }
+}
+
 impl Display for ItemInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let definition = self.definition.lock().unwrap();

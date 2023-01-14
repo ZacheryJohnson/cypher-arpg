@@ -89,6 +89,7 @@ mod tests {
             affix_database.clone(),
         )));
         let item_database = Arc::new(Mutex::new(ItemDefinitionDatabase::initialize(
+            affix_database.clone(),
             affix_pool_database.clone(),
         )));
         let loot_pool_database = Arc::new(Mutex::new(LootPoolDefinitionDatabase::initialize(

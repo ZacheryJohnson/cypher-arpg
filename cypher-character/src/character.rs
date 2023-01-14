@@ -125,6 +125,7 @@ mod tests {
                 id: 1,
                 classification: ItemClassification::Equippable(ItemEquipSlot::Head),
                 affix_pools: vec![],
+                fixed_affixes: vec![],
                 name: String::from("test item"),
             })),
             affixes: vec![AffixInstance {

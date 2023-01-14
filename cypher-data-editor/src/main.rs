@@ -98,7 +98,7 @@ impl DataEditorApp {
         let item_db_path = get_item_db_path();
         let item_db = Arc::new(Mutex::new(ItemDefinitionDatabase::load_from(
             item_db_path.to_str().unwrap(),
-            &affix_pool_db.clone(),
+            &(affix_db.clone(), affix_pool_db.clone()),
         )));
 
         let loot_pool_db_path = get_loot_pool_db_path();
@@ -271,17 +271,20 @@ impl DataEditorApp {
                                 });
                                 for stat in &mut tier_def.stats {
                                     let selected_stat = &mut stat.stat;
-                                    egui::ComboBox::from_id_source(format!("Stat_{}", stat.value))
-                                        .selected_text(format!("{:?}", selected_stat))
-                                        .show_ui(ui, |ui| {
-                                            for stat_variant in Stat::iter() {
-                                                ui.selectable_value(
-                                                    selected_stat,
-                                                    stat_variant,
-                                                    format!("{:?}", stat_variant),
-                                                );
-                                            }
-                                        });
+                                    egui::ComboBox::from_id_source(format!(
+                                        "Stat_{:?}_{}",
+                                        selected_stat, stat.value
+                                    ))
+                                    .selected_text(format!("{:?}", selected_stat))
+                                    .show_ui(ui, |ui| {
+                                        for stat_variant in Stat::iter() {
+                                            ui.selectable_value(
+                                                selected_stat,
+                                                stat_variant,
+                                                format!("{:?}", stat_variant),
+                                            );
+                                        }
+                                    });
 
                                     ui.horizontal(|ui| {
                                         match &mut stat.value {
@@ -596,6 +599,7 @@ impl DataEditorApp {
                     id: next_id,
                     classification: ItemClassification::Invalid,
                     affix_pools: vec![],
+                    fixed_affixes: vec![],
                     name: String::new(),
                 };
 

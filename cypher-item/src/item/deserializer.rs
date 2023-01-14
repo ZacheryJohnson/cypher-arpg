@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use cypher_core::{
+    affix::{database::AffixDefinitionDatabase, definition::AffixDefinitionId},
     affix_pool::database::{AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
     data::DataDefinitionDatabase,
 };
@@ -14,6 +15,7 @@ use crate::item::classification::ItemClassification;
 use super::definition::ItemDefinition;
 
 pub struct ItemDefinitionDatabaseDeserializer {
+    pub(super) affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
     pub(super) affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
 }
 
@@ -25,6 +27,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
         D: Deserializer<'de>,
     {
         struct ItemDefinitionDatabaseVisitor {
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
             affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         }
 
@@ -42,6 +45,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
                 let mut definitions = vec![];
 
                 while let Some(definition) = seq.next_element_seed(ItemDefinitionDeserializer {
+                    affix_db: self.affix_db.clone(),
                     affix_pool_db: self.affix_pool_db.clone(),
                 })? {
                     definitions.push(definition);
@@ -52,12 +56,14 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDatabaseDeserializer {
         }
 
         deserializer.deserialize_seq(ItemDefinitionDatabaseVisitor {
+            affix_db: self.affix_db,
             affix_pool_db: self.affix_pool_db,
         })
     }
 }
 
 struct ItemDefinitionDeserializer {
+    affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
     affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
 }
 
@@ -68,12 +74,19 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
     where
         D: serde::Deserializer<'de>,
     {
-        const FIELDS: &[&str] = &["id", "classification", "affix_pools", "name"];
+        const FIELDS: &[&str] = &[
+            "id",
+            "classification",
+            "affix_pools",
+            "fixed_affixes",
+            "name",
+        ];
 
         enum Field {
             Id,
             Classification,
             AffixPools,
+            FixedAffixes,
             Name,
         }
 
@@ -106,6 +119,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
                             "id" => Ok(Field::Id),
                             "classification" => Ok(Field::Classification),
                             "affix_pools" => Ok(Field::AffixPools),
+                            "fixed_affixes" => Ok(Field::FixedAffixes),
                             "name" => Ok(Field::Name),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
@@ -117,6 +131,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
         }
 
         struct ItemDefinitionVisitor {
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
             affix_pool_db: Arc<Mutex<AffixPoolDefinitionDatabase>>,
         }
 
@@ -135,6 +150,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
                     id: 0,
                     classification: ItemClassification::Invalid,
                     affix_pools: vec![],
+                    fixed_affixes: vec![],
                     name: String::new(),
                 };
 
@@ -158,6 +174,22 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
 
                             item_def.affix_pools = affix_pools;
                         }
+                        Field::FixedAffixes => {
+                            let mut fixed_affixes = vec![];
+
+                            let fixed_affix_ids: Vec<AffixDefinitionId> = map.next_value()?;
+                            for fixed_affix_id in fixed_affix_ids {
+                                fixed_affixes.push(
+                                    self.affix_db
+                                        .lock()
+                                        .unwrap()
+                                        .definition(fixed_affix_id)
+                                        .unwrap(),
+                                );
+                            }
+
+                            item_def.fixed_affixes = fixed_affixes;
+                        }
                         Field::Name => item_def.name = map.next_value()?,
                     };
                 }
@@ -170,6 +202,7 @@ impl<'de> DeserializeSeed<'de> for ItemDefinitionDeserializer {
             "ItemDefinition",
             FIELDS,
             ItemDefinitionVisitor {
+                affix_db: self.affix_db,
                 affix_pool_db: self.affix_pool_db,
             },
         )
