@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 use uuid::{self, Uuid};
 
 use cypher_core::{
@@ -78,17 +81,25 @@ fn generate_from_affix_pool(
 
     let mut affixes = vec![];
 
+    let mut affix_pool_criteria = AffixPoolGenerationCriteria::default();
+
     for _ in 0..affix_count {
-        if let Some(affix_def) = affix_pool_generator.generate(
-            pool.clone(),
-            &AffixPoolGenerationCriteria::default(),
-            &(affix_db.clone()),
-        ) {
+        if let Some(affix_def) =
+            affix_pool_generator.generate(pool.clone(), &affix_pool_criteria, &(affix_db.clone()))
+        {
             let affix_criteria = &criteria.affix_generation_criteria;
             let affix = affix_generator.generate(affix_def.clone(), affix_criteria, &());
 
             if let Some(affix_instance) = affix {
                 affixes.push(affix_instance);
+
+                if let Some(ids) = &mut affix_pool_criteria.disallowed_ids {
+                    ids.insert(affix_def.lock().unwrap().id);
+                } else {
+                    let mut hash_set = HashSet::new();
+                    hash_set.insert(affix_def.lock().unwrap().id);
+                    affix_pool_criteria.disallowed_ids = Some(hash_set);
+                }
             } else {
                 // TODO: don't continue? this seems bad
                 continue;
