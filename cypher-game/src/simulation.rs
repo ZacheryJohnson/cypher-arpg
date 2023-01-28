@@ -5,16 +5,20 @@ use std::{
     collections::HashMap,
     f32::consts::FRAC_PI_2,
     sync::{Arc, Mutex, Weak},
+    time::Duration,
 };
 
 use bevy::{
+    app::ScheduleRunnerSettings,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::event::ManualEventReader,
+    log::LogPlugin,
     math::Vec3A,
     prelude::*,
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
+use bevy_renet::{RenetClientPlugin, RenetServerPlugin};
 use cypher_character::character::Character;
 use cypher_core::{
     data::{DataDefinitionDatabase, DataInstanceGenerator},
@@ -27,7 +31,12 @@ use cypher_item::{
         generator::{LootPoolCriteria, LootPoolItemGenerator},
     },
 };
-use cypher_net::server::Server;
+use cypher_net::{
+    client::Client,
+    resources::lobby::Lobby,
+    server::GameServer,
+    systems::{client, server},
+};
 use cypher_world::WorldEntity;
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -39,32 +48,74 @@ pub enum SimulationMode {
     ClientAndServer,
 }
 
-pub fn start(_mode: SimulationMode) {
-    App::new()
-        .init_resource::<PlayerSettings>()
-        .init_resource::<DataManager>()
-        .init_resource::<GameState>()
-        .init_resource::<LootGenerator>()
-        .init_resource::<GameServer>()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_startup_system(setup)
-        .add_startup_system(setup_world)
-        .add_system(handle_input)
-        .add_system(adjust_camera_for_mouse_position)
-        .add_system(update_projectiles)
-        .add_system(loot_generation)
-        .add_system(pickup_dropped_item_under_cursor)
-        .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
-        .add_system(get_pending_messages)
-        .add_system(todo_hack)
-        .run();
-}
+pub fn start(mode: SimulationMode) {
+    let mut app = App::new();
 
-#[derive(Default, Resource)]
-struct GameServer {
-    pub server: Server,
+    match mode {
+        SimulationMode::ClientOnly => {
+            app.init_resource::<PlayerSettings>()
+                .init_resource::<DataManager>()
+                .init_resource::<GameState>()
+                .add_plugins(DefaultPlugins)
+                .add_plugin(FrameTimeDiagnosticsPlugin::default())
+                .add_plugin(LogDiagnosticsPlugin::default())
+                .add_plugin(RenetClientPlugin::default())
+                .insert_resource(Client::new_renet_client())
+                .add_startup_system(setup)
+                .add_startup_system(setup_world)
+                .add_system(handle_input)
+                .add_system(adjust_camera_for_mouse_position)
+                .add_system(update_projectiles)
+                .add_system(pickup_dropped_item_under_cursor)
+                .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
+                .add_system_set(client::get_client_systems());
+        }
+        SimulationMode::ServerOnly => {
+            app.init_resource::<DataManager>()
+                .init_resource::<GameState>()
+                .init_resource::<LootGenerator>()
+                .init_resource::<Lobby>()
+                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+                    1.0 / 30.0,
+                )))
+                .add_plugins(MinimalPlugins)
+                .add_plugin(LogPlugin::default())
+                .add_plugin(AssetPlugin::default()) // ZJ-TODO: remove this line, projectiles needs refactor
+                .add_plugin(RenetServerPlugin::default())
+                .insert_resource(GameServer::new_renet_server())
+                .add_startup_system(setup)
+                .add_startup_system(setup_world)
+                .add_system(update_projectiles)
+                .add_system(loot_generation)
+                .add_system_set(server::get_server_systems());
+        }
+        SimulationMode::ClientAndServer => {
+            app.init_resource::<PlayerSettings>()
+                .init_resource::<DataManager>()
+                .init_resource::<GameState>()
+                .init_resource::<LootGenerator>()
+                .init_resource::<Lobby>()
+                .add_plugins(DefaultPlugins)
+                .add_plugin(FrameTimeDiagnosticsPlugin::default())
+                .add_plugin(LogDiagnosticsPlugin::default())
+                .add_plugin(RenetServerPlugin::default())
+                .insert_resource(GameServer::new_renet_server())
+                .add_plugin(RenetClientPlugin::default())
+                .insert_resource(Client::new_renet_client())
+                .add_startup_system(setup)
+                .add_startup_system(setup_world)
+                .add_system(handle_input)
+                .add_system(adjust_camera_for_mouse_position)
+                .add_system(update_projectiles)
+                .add_system(loot_generation)
+                .add_system(pickup_dropped_item_under_cursor)
+                .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
+                .add_system_set(server::get_server_systems())
+                .add_system_set(client::get_client_systems());
+        }
+    };
+
+    app.run();
 }
 
 #[derive(Component)]
@@ -731,18 +782,5 @@ fn pickup_dropped_item_under_cursor(
                 }
             }
         }
-    }
-}
-
-fn todo_hack(mut server: ResMut<GameServer>, keyboard_input: Res<Input<KeyCode>>) {
-    if keyboard_input.just_pressed(KeyCode::T) {
-        server.server.hack_remove_pls();
-    }
-}
-
-fn get_pending_messages(mut server: ResMut<GameServer>) {
-    let messages = server.server.get_messages();
-    if !messages.is_empty() {
-        println!("Have messages! {:?}", messages);
     }
 }
