@@ -4,8 +4,9 @@
 use std::{
     collections::HashMap,
     f32::consts::FRAC_PI_2,
+    mem::Discriminant,
     sync::{Arc, Mutex, Weak},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use bevy::{
@@ -18,7 +19,10 @@ use bevy::{
     render::camera::{Camera, RenderTarget},
     sprite::collide_aabb::collide,
 };
-use bevy_renet::{RenetClientPlugin, RenetServerPlugin};
+use bevy_renet::{
+    renet::{DefaultChannel, RenetClient},
+    RenetClientPlugin, RenetServerPlugin,
+};
 use cypher_character::character::Character;
 use cypher_core::{
     data::{DataDefinitionDatabase, DataInstanceGenerator},
@@ -33,6 +37,7 @@ use cypher_item::{
 };
 use cypher_net::{
     client::Client,
+    messages::client::client_message::ClientMessage,
     resources::lobby::Lobby,
     server::GameServer,
     systems::{client, server},
@@ -56,6 +61,10 @@ pub fn start(mode: SimulationMode) {
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
                 .init_resource::<GameState>()
+                .insert_resource(NetLimiter {
+                    messages_per_second: 2.0,
+                    messages_by_id: HashMap::new(),
+                })
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -95,6 +104,10 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<GameState>()
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
+                .insert_resource(NetLimiter {
+                    messages_per_second: 2.0,
+                    messages_by_id: HashMap::new(),
+                })
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -132,6 +145,12 @@ struct Team {
 #[derive(Component)]
 struct HitPoints {
     health: f32,
+}
+
+#[derive(Resource)]
+struct NetLimiter {
+    messages_per_second: f32,
+    messages_by_id: HashMap<Discriminant<ClientMessage>, Instant>,
 }
 
 #[derive(Default, Resource)]
@@ -360,6 +379,8 @@ fn handle_input(
     mouse_input: Res<Input<MouseButton>>,
     mut settings: ResMut<PlayerSettings>,
     collidables: Query<&Transform, (With<Collider>, Without<WorldEntity>)>,
+    mut client: ResMut<RenetClient>,
+    mut net_limiter: ResMut<NetLimiter>,
 ) {
     let (mut player_transform, character) = players.single_mut();
 
@@ -410,6 +431,39 @@ fn handle_input(
 
     player_transform.translation.x = new_transform.0;
     player_transform.translation.y = new_transform.1;
+
+    let msg = ClientMessage::PlayerTransformUpdate {
+        transform: *player_transform,
+    };
+    let mut msg_sent = false; // ZJ-TODO: ugh fix me
+    if let Some(last_msg_sent) = net_limiter
+        .messages_by_id
+        .get_mut(&std::mem::discriminant(&msg))
+    {
+        if last_msg_sent.elapsed().as_secs_f32() > (1.0 / net_limiter.messages_per_second) {
+            println!("Sending transform update!");
+            let serialized = msg.serialize().unwrap();
+
+            client.send_message(DefaultChannel::Unreliable, serialized);
+
+            msg_sent = true;
+        }
+    } else {
+        net_limiter
+            .messages_by_id
+            .insert(std::mem::discriminant(&msg), Instant::now());
+
+        let serialized = msg.serialize().unwrap();
+        client.send_message(DefaultChannel::Unreliable, serialized);
+        msg_sent = true;
+    }
+
+    if msg_sent {
+        *net_limiter
+            .messages_by_id
+            .get_mut(&std::mem::discriminant(&msg))
+            .unwrap() = Instant::now();
+    }
 
     if mouse_input.just_pressed(MouseButton::Middle) {
         settings.mouse_pan_enabled ^= true;

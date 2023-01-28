@@ -1,7 +1,10 @@
 use bevy::prelude::{Commands, EventReader, ResMut};
 use bevy_renet::renet::{DefaultChannel, RenetServer, ServerEvent};
 
-use crate::{resources::lobby::Lobby, server_message::ServerMessage};
+use crate::{
+    messages::{client::client_message::ClientMessage, server::server_message::ServerMessage},
+    resources::lobby::Lobby,
+};
 
 pub fn process_events(
     mut server_events: EventReader<ServerEvent>,
@@ -46,9 +49,22 @@ pub fn process_events(
     }
 
     for client_id in server.clients_id().into_iter() {
-        while let Some(_message) = server.receive_message(client_id, DefaultChannel::Reliable) {
-            if let Some(_player_entity) = lobby.players.get(&client_id) {
-                // ZJ-TODO: process client messages
+        while let Some(message) = server.receive_message(client_id, DefaultChannel::Unreliable) {
+            if let Some(player_entity) = lobby.players.get(&client_id) {
+                match bincode::deserialize::<ClientMessage>(&message).unwrap() {
+                    ClientMessage::PlayerTransformUpdate { transform } => {
+                        // ZJ-TODO: don't blindly trust player input
+                        server.broadcast_message(
+                            DefaultChannel::Unreliable,
+                            ServerMessage::EntityTransformUpdate {
+                                entity: *player_entity,
+                                transform,
+                            }
+                            .serialize()
+                            .unwrap(),
+                        )
+                    }
+                }
             }
         }
     }
