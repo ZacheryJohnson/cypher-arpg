@@ -11,7 +11,7 @@ pub fn process_messages(mut commands: Commands, mut client: ResMut<RenetClient>)
             ServerMessage::EntityTransformUpdate { entity, transform } => {
                 if let Some(mut world_entity) = commands.get_entity(entity) {
                     world_entity.insert(transform);
-                    println!("updated entity");
+                    println!("updated {entity:?} to {transform:?}");
                 } else {
                     println!("unknown entity");
                 }

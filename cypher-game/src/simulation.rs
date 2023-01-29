@@ -4,9 +4,8 @@
 use std::{
     collections::HashMap,
     f32::consts::FRAC_PI_2,
-    mem::Discriminant,
     sync::{Arc, Mutex, Weak},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use bevy::{
@@ -38,7 +37,7 @@ use cypher_item::{
 use cypher_net::{
     client::Client,
     messages::client::client_message::ClientMessage,
-    resources::lobby::Lobby,
+    resources::{lobby::Lobby, net_limiter::NetLimiter},
     server::GameServer,
     systems::{client, server},
 };
@@ -61,10 +60,7 @@ pub fn start(mode: SimulationMode) {
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
                 .init_resource::<GameState>()
-                .insert_resource(NetLimiter {
-                    messages_per_second: 2.0,
-                    messages_by_id: HashMap::new(),
-                })
+                .init_resource::<NetLimiter>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -104,10 +100,7 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<GameState>()
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
-                .insert_resource(NetLimiter {
-                    messages_per_second: 2.0,
-                    messages_by_id: HashMap::new(),
-                })
+                .init_resource::<NetLimiter>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -145,12 +138,6 @@ struct Team {
 #[derive(Component)]
 struct HitPoints {
     health: f32,
-}
-
-#[derive(Resource)]
-struct NetLimiter {
-    messages_per_second: f32,
-    messages_by_id: HashMap<Discriminant<ClientMessage>, Instant>,
 }
 
 #[derive(Default, Resource)]
@@ -435,35 +422,7 @@ fn handle_input(
     let msg = ClientMessage::PlayerTransformUpdate {
         transform: *player_transform,
     };
-    let mut msg_sent = false; // ZJ-TODO: ugh fix me
-    if let Some(last_msg_sent) = net_limiter
-        .messages_by_id
-        .get_mut(&std::mem::discriminant(&msg))
-    {
-        if last_msg_sent.elapsed().as_secs_f32() > (1.0 / net_limiter.messages_per_second) {
-            println!("Sending transform update!");
-            let serialized = msg.serialize().unwrap();
-
-            client.send_message(DefaultChannel::Unreliable, serialized);
-
-            msg_sent = true;
-        }
-    } else {
-        net_limiter
-            .messages_by_id
-            .insert(std::mem::discriminant(&msg), Instant::now());
-
-        let serialized = msg.serialize().unwrap();
-        client.send_message(DefaultChannel::Unreliable, serialized);
-        msg_sent = true;
-    }
-
-    if msg_sent {
-        *net_limiter
-            .messages_by_id
-            .get_mut(&std::mem::discriminant(&msg))
-            .unwrap() = Instant::now();
-    }
+    net_limiter.try_send(&mut client, &msg, DefaultChannel::Unreliable);
 
     if mouse_input.just_pressed(MouseButton::Middle) {
         settings.mouse_pan_enabled ^= true;
