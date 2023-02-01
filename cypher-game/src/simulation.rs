@@ -11,7 +11,7 @@ use std::{
 use bevy::{
     app::ScheduleRunnerSettings,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    ecs::event::ManualEventReader,
+    ecs::{event::ManualEventReader, schedule::ShouldRun},
     log::LogPlugin,
     math::Vec3A,
     prelude::*,
@@ -25,7 +25,7 @@ use bevy_renet::{
 use cypher_character::character::Character;
 use cypher_core::{
     data::{DataDefinitionDatabase, DataInstanceGenerator},
-    stat::{Stat, StatList, StatModifier},
+    stat::Stat,
 };
 use cypher_item::{
     item::instance::{ItemInstance, ItemInstanceRarityTier},
@@ -36,12 +36,17 @@ use cypher_item::{
 };
 use cypher_net::{
     client::Client,
-    messages::client::client_message::ClientMessage,
-    resources::{lobby::Lobby, net_limiter::NetLimiter},
+    messages::{client::client_message::ClientMessage, server::server_message::ServerMessage},
+    resources::{
+        lobby::Lobby, net_limiter::NetLimiter, server_message_dispatcher::ServerMessageDispatcher,
+    },
     server::GameServer,
     systems::{client, server},
 };
-use cypher_world::WorldEntity;
+use cypher_world::components::{
+    camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
+    player_controller::PlayerController, team::Team, world_entity::WorldEntity,
+};
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::data_manager::DataManager;
@@ -61,6 +66,8 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<DataManager>()
                 .init_resource::<GameState>()
                 .init_resource::<NetLimiter>()
+                .add_event::<ServerMessage>()
+                .init_resource::<ServerMessageDispatcher>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -68,7 +75,7 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(Client::new_renet_client())
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_input)
+                .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position)
                 .add_system(update_projectiles)
                 .add_system(pickup_dropped_item_under_cursor)
@@ -101,6 +108,8 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .init_resource::<NetLimiter>()
+                .add_event::<ServerMessage>()
+                .init_resource::<ServerMessageDispatcher>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -110,12 +119,18 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(Client::new_renet_client())
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_input)
-                .add_system(adjust_camera_for_mouse_position)
+                .add_system(handle_input.with_run_criteria(client_connected))
+                .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(update_projectiles)
                 .add_system(loot_generation)
-                .add_system(pickup_dropped_item_under_cursor)
-                .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
+                .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
+                .add_system(
+                    show_loot_on_hover
+                        .with_run_criteria(client_connected)
+                        .after(pickup_dropped_item_under_cursor),
+                )
+                .add_system(cypher_world::systems::client::spawn_player::listen_for_spawn_player)
+                .add_system(cypher_world::systems::server::spawn_player::listen_for_spawn_player)
                 .add_system_set(server::get_server_systems())
                 .add_system_set(client::get_client_systems());
         }
@@ -124,42 +139,10 @@ pub fn start(mode: SimulationMode) {
     app.run();
 }
 
-#[derive(Component)]
-struct CameraFollow;
-
-#[derive(Component)]
-struct Collider;
-
-#[derive(Component)]
-struct Team {
-    pub id: u16,
-}
-
-#[derive(Component)]
-struct HitPoints {
-    health: f32,
-}
-
 #[derive(Default, Resource)]
 struct PlayerSettings {
     pub mouse_pan_enabled: bool,
     pub alt_mode_enabled: bool,
-}
-
-#[derive(Component)]
-struct PlayerController;
-
-#[derive(Component)]
-struct CharacterComponent {
-    pub character: Character,
-}
-
-impl Default for CharacterComponent {
-    fn default() -> Self {
-        Self {
-            character: Character::new(vec![StatList::from(&[StatModifier(Stat::Health, 10.)])]),
-        }
-    }
 }
 
 #[derive(Component)]
@@ -214,35 +197,17 @@ struct UiItemText;
 #[derive(Component)]
 struct UiItemTextBox;
 
+fn client_connected(client: Res<RenetClient>, time: Res<Time>) -> ShouldRun {
+    // ZJ-TODO: this is a hack - we should instead listen for our player being spawned
+    if client.is_connected() && time.startup().elapsed().as_secs_f32() > 1.0 {
+        ShouldRun::Yes
+    } else {
+        ShouldRun::No
+    }
+}
+
 fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-
-    commands.spawn((
-        PlayerController,
-        CharacterComponent::default(),
-        WorldEntity,
-        CameraFollow,
-        HitPoints { health: 10.0 },
-        Collider,
-        Team { id: 1 },
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::rgb(0.0, 1.0, 0.7),
-                custom_size: Some(Vec2 { x: 1., y: 1. }),
-                ..default()
-            },
-            transform: Transform {
-                translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),
-                scale: Vec3 {
-                    x: 15.,
-                    y: 15.,
-                    z: 1.0,
-                },
-                ..default()
-            },
-            ..default()
-        },
-    ));
 
     commands
         .spawn((
@@ -357,15 +322,12 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_input(
     mut commands: Commands,
-    mut players: Query<
-        (&mut Transform, &CharacterComponent),
-        (With<WorldEntity>, With<PlayerController>),
-    >,
+    mut players: Query<(&mut Transform, &Character), (With<WorldEntity>, With<PlayerController>)>,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
     mut settings: ResMut<PlayerSettings>,
-    collidables: Query<&Transform, (With<Collider>, Without<WorldEntity>)>,
+    collidables: Query<&Transform, (With<Collider>, Without<PlayerController>)>,
     mut client: ResMut<RenetClient>,
     mut net_limiter: ResMut<NetLimiter>,
 ) {
@@ -373,12 +335,7 @@ fn handle_input(
 
     let mut trans = (0.0, 0.0);
     const BASE_MOVE_SPEED: f32 = 100.;
-    let move_speed = BASE_MOVE_SPEED
-        + character
-            .character
-            .stats()
-            .get_stat(&Stat::MoveSpeed)
-            .unwrap_or(&0.);
+    let move_speed = BASE_MOVE_SPEED + character.stats().get_stat(&Stat::MoveSpeed).unwrap_or(&0.);
     let delta = time.delta().as_secs_f32() * move_speed;
 
     if keyboard_input.pressed(KeyCode::W) {
@@ -732,7 +689,7 @@ fn show_loot_on_hover(
 fn pickup_dropped_item_under_cursor(
     mut commands: Commands,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
-    mut character_query: Query<&mut CharacterComponent, With<PlayerController>>,
+    mut character_query: Query<&mut Character, With<PlayerController>>,
     dropped_items: Query<(Entity, &Transform), With<ItemDrop>>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
@@ -784,12 +741,11 @@ fn pickup_dropped_item_under_cursor(
                         .into_inner()
                         .unwrap();
                     character
-                        .character
                         .equipment
                         .equip(item)
                         .expect("ZJ-TODO: UI to show failure to equip");
 
-                    println!("{}", character.character.equipment);
+                    println!("{}", character.equipment);
 
                     return;
                 }

@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 cypher-character = { path = "../cypher-character"}
+cypher-net = { path = "../cypher-net" }
+
+bevy_renet = "0"
 
 [dependencies.bevy]
 workspace = true
