@@ -1,4 +1,4 @@
-use bevy::prelude::{Commands, ResMut};
+use bevy::prelude::ResMut;
 use bevy_renet::renet::{DefaultChannel, RenetClient};
 
 use crate::{
@@ -7,7 +7,6 @@ use crate::{
 };
 
 pub fn process_messages(
-    mut commands: Commands,
     mut client: ResMut<RenetClient>,
     mut server_message_dispatcher: ResMut<ServerToClientMessageDispatcher>,
 ) {

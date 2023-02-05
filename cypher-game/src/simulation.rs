@@ -35,7 +35,8 @@ use cypher_item::{
     },
 };
 use cypher_net::resources::server_message_dispatcher::{
-    ServerToClientMessageDispatcher, ServerToServerMessageDispatcher,
+    ClientToServerMessageDispatcher, ServerToClientMessageDispatcher,
+    ServerToServerMessageDispatcher,
 };
 use cypher_net::{
     client::Client,
@@ -47,6 +48,7 @@ use cypher_net::{
     server::GameServer,
     systems::{client, server},
 };
+use cypher_world::components::projectile::Projectile;
 use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
@@ -106,6 +108,7 @@ pub fn start(mode: SimulationMode) {
                 )))
                 .init_resource::<ServerNetEntityRegistry>()
                 .init_resource::<ServerToServerMessageDispatcher>()
+                .init_resource::<ClientToServerMessageDispatcher>()
                 .add_plugins(MinimalPlugins)
                 .add_plugin(LogPlugin::default())
                 .add_plugin(AssetPlugin::default()) // ZJ-TODO: remove this line, projectiles needs refactor
@@ -132,6 +135,7 @@ pub fn start(mode: SimulationMode) {
                 .add_event::<ServerMessage>()
                 .init_resource::<ServerToClientMessageDispatcher>()
                 .init_resource::<ServerToServerMessageDispatcher>()
+                .init_resource::<ClientToServerMessageDispatcher>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -152,7 +156,7 @@ pub fn start(mode: SimulationMode) {
                         .with_run_criteria(client_connected)
                         .after(pickup_dropped_item_under_cursor),
                 )
-                .add_system(cypher_world::systems::server::spawn_player::listen_for_spawn_player)
+                .add_system_set(cypher_world::systems::server::get_server_systems())
                 .add_system_set(cypher_world::systems::client::get_client_systems())
                 .add_system_set(cypher_net::systems::server::get_server_systems())
                 .add_system_set(cypher_net::systems::client::get_client_systems());
@@ -166,14 +170,6 @@ pub fn start(mode: SimulationMode) {
 struct PlayerSettings {
     pub mouse_pan_enabled: bool,
     pub alt_mode_enabled: bool,
-}
-
-#[derive(Component)]
-struct Projectile {
-    pub move_speed: f32,
-    pub lifetime: f32,
-    pub damage: f32,
-    pub team_id: u16,
 }
 
 #[derive(Component, Clone)]
@@ -361,7 +357,11 @@ fn handle_input(
     mut client: ResMut<RenetClient>,
     mut net_limiter: ResMut<NetLimiter>,
 ) {
-    let (mut player_transform, character) = player.single_mut();
+    let maybe_player = player.get_single_mut();
+    let Ok((mut player_transform, character)) = maybe_player else {
+        println!("Failed to find player to handle input for");
+        return;
+    };
 
     let mut trans = (0.0, 0.0);
     const BASE_MOVE_SPEED: f32 = 100.;
@@ -416,32 +416,25 @@ fn handle_input(
     }
 
     if mouse_input.just_pressed(MouseButton::Left) {
-        // temp: spawn "bullet"
-        commands.spawn((
-            Projectile {
-                move_speed: 500.0,
-                lifetime: 800.0,
-                damage: 1.0,
-                team_id: 1,
+        let transform = Transform {
+            translation: player_transform.translation - player_transform.local_y() * 25.0,
+            rotation: player_transform.rotation,
+            scale: Vec3 {
+                x: 5.,
+                y: 5.,
+                z: 1.0,
             },
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::rgb(1.0, 0.2, 0.2),
-                    custom_size: Some(Vec2 { x: 1., y: 1. }),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: player_transform.translation - player_transform.local_y() * 25.0,
-                    rotation: player_transform.rotation,
-                    scale: Vec3 {
-                        x: 5.,
-                        y: 5.,
-                        z: 1.0,
-                    },
-                },
-                ..default()
+        };
+
+        net_limiter.try_send(
+            &mut client,
+            &ClientMessage::SpawnProjectile {
+                projectile_id: 1, // ZJ-TODO: sadge; would prefer just shoving a Projectile in there,
+                // but then cypher-net would have dependency on game libs
+                transform: transform.clone(),
             },
-        ));
+            DefaultChannel::Reliable,
+        );
     }
 }
 

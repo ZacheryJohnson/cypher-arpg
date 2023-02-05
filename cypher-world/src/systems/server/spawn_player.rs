@@ -22,7 +22,7 @@ pub fn listen_for_spawn_player(
     mut dispatcher: ResMut<ServerToServerMessageDispatcher>,
     mut lobby: ResMut<Lobby>,
     mut net_entities: ResMut<ServerNetEntityRegistry>,
-    players: Query<(&Transform, Entity), With<ServerPlayer>>,
+    players: Query<&Transform, With<ServerPlayer>>,
 ) {
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerConnected);
     if let Some(events) = maybe_events {
@@ -48,7 +48,7 @@ fn spawn_player(
     lobby: &mut ResMut<Lobby>,
     net_entities: &mut ResMut<ServerNetEntityRegistry>,
     player_id: u64,
-    players: &Query<(&Transform, Entity), With<ServerPlayer>>,
+    players: &Query<&Transform, With<ServerPlayer>>,
 ) {
     let transform = Transform {
         translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),
@@ -91,7 +91,7 @@ fn spawn_player(
         let local_entity = net_entities
             .get_local_entity(net_entity_id)
             .expect("failed to get local entity for net entity");
-        let (transform, entity) = players.get(*local_entity).unwrap();
+        let transform = players.get(*local_entity).unwrap();
         server.send_message(
             player_id,
             DefaultChannel::Reliable,
