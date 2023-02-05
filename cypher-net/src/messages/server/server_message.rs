@@ -1,9 +1,8 @@
-use bevy::{
-    ecs::event::Event,
-    prelude::{Entity, Transform},
-};
+use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
+
+use crate::net_entity::NetEntityT;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumDiscriminants)]
 // ZJ-TODO: if Rust adds types for enum variants, we can remove the strum discriminant functionality
@@ -19,10 +18,11 @@ pub enum ServerMessage {
     },
     PlayerSpawned {
         player_id: u64,
+        net_entity_id: NetEntityT,
         transform: Transform,
     },
     EntityTransformUpdate {
-        entity: Entity,
+        net_entity_id: NetEntityT,
         transform: Transform,
     },
 }

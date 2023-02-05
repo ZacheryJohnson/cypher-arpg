@@ -34,11 +34,15 @@ use cypher_item::{
         generator::{LootPoolCriteria, LootPoolItemGenerator},
     },
 };
+use cypher_net::resources::server_message_dispatcher::{
+    ServerToClientMessageDispatcher, ServerToServerMessageDispatcher,
+};
 use cypher_net::{
     client::Client,
     messages::{client::client_message::ClientMessage, server::server_message::ServerMessage},
     resources::{
-        lobby::Lobby, net_limiter::NetLimiter, server_message_dispatcher::ServerMessageDispatcher,
+        client_net_entity_registry::ClientNetEntityRegistry, client_state::ClientState,
+        lobby::Lobby, net_limiter::NetLimiter, server_net_entity_registry::ServerNetEntityRegistry,
     },
     server::GameServer,
     systems::{client, server},
@@ -62,25 +66,35 @@ pub fn start(mode: SimulationMode) {
 
     match mode {
         SimulationMode::ClientOnly => {
+            let renet_client = Client::new_renet_client();
+            let client_id = renet_client.client_id();
+
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
                 .init_resource::<GameState>()
                 .init_resource::<NetLimiter>()
+                .init_resource::<ClientNetEntityRegistry>()
                 .add_event::<ServerMessage>()
-                .init_resource::<ServerMessageDispatcher>()
+                .init_resource::<ServerToClientMessageDispatcher>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
                 .add_plugin(RenetClientPlugin::default())
-                .insert_resource(Client::new_renet_client())
+                .insert_resource(renet_client)
+                .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
                 .add_system(handle_input.with_run_criteria(client_connected))
-                .add_system(adjust_camera_for_mouse_position)
+                .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(update_projectiles)
-                .add_system(pickup_dropped_item_under_cursor)
-                .add_system(show_loot_on_hover.after(pickup_dropped_item_under_cursor))
-                .add_system_set(client::get_client_systems());
+                .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
+                .add_system(
+                    show_loot_on_hover
+                        .with_run_criteria(client_connected)
+                        .after(pickup_dropped_item_under_cursor),
+                )
+                .add_system_set(cypher_world::systems::client::get_client_systems())
+                .add_system_set(cypher_net::systems::client::get_client_systems());
         }
         SimulationMode::ServerOnly => {
             app.init_resource::<DataManager>()
@@ -90,6 +104,8 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                     1.0 / 30.0,
                 )))
+                .init_resource::<ServerNetEntityRegistry>()
+                .init_resource::<ServerToServerMessageDispatcher>()
                 .add_plugins(MinimalPlugins)
                 .add_plugin(LogPlugin::default())
                 .add_plugin(AssetPlugin::default()) // ZJ-TODO: remove this line, projectiles needs refactor
@@ -102,21 +118,28 @@ pub fn start(mode: SimulationMode) {
                 .add_system_set(server::get_server_systems());
         }
         SimulationMode::ClientAndServer => {
+            let renet_client = Client::new_renet_client();
+            let client_id = renet_client.client_id();
+
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
                 .init_resource::<GameState>()
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .init_resource::<NetLimiter>()
+                .init_resource::<ClientNetEntityRegistry>()
+                .init_resource::<ServerNetEntityRegistry>()
                 .add_event::<ServerMessage>()
-                .init_resource::<ServerMessageDispatcher>()
+                .init_resource::<ServerToClientMessageDispatcher>()
+                .init_resource::<ServerToServerMessageDispatcher>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
                 .add_plugin(RenetServerPlugin::default())
                 .insert_resource(GameServer::new_renet_server())
                 .add_plugin(RenetClientPlugin::default())
-                .insert_resource(Client::new_renet_client())
+                .insert_resource(renet_client)
+                .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
                 .add_system(handle_input.with_run_criteria(client_connected))
@@ -129,10 +152,10 @@ pub fn start(mode: SimulationMode) {
                         .with_run_criteria(client_connected)
                         .after(pickup_dropped_item_under_cursor),
                 )
-                .add_system(cypher_world::systems::client::spawn_player::listen_for_spawn_player)
                 .add_system(cypher_world::systems::server::spawn_player::listen_for_spawn_player)
-                .add_system_set(server::get_server_systems())
-                .add_system_set(client::get_client_systems());
+                .add_system_set(cypher_world::systems::client::get_client_systems())
+                .add_system_set(cypher_net::systems::server::get_server_systems())
+                .add_system_set(cypher_net::systems::client::get_client_systems());
         }
     };
 
@@ -322,7 +345,14 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn handle_input(
     mut commands: Commands,
-    mut players: Query<(&mut Transform, &Character), (With<WorldEntity>, With<PlayerController>)>,
+    mut player: Query<
+        (&mut Transform, &Character),
+        (
+            With<WorldEntity>,
+            With<PlayerController>,
+            With<CameraFollow>, /* ZJ-TODO: this is a hack, don't use CameraFollow */
+        ),
+    >,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mouse_input: Res<Input<MouseButton>>,
@@ -331,7 +361,7 @@ fn handle_input(
     mut client: ResMut<RenetClient>,
     mut net_limiter: ResMut<NetLimiter>,
 ) {
-    let (mut player_transform, character) = players.single_mut();
+    let (mut player_transform, character) = player.single_mut();
 
     let mut trans = (0.0, 0.0);
     const BASE_MOVE_SPEED: f32 = 100.;

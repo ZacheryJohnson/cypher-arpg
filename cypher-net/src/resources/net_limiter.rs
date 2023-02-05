@@ -14,7 +14,7 @@ pub struct NetLimiter {
 impl Default for NetLimiter {
     fn default() -> Self {
         Self {
-            messages_per_second: 2.0,
+            messages_per_second: 5.0,
             messages_by_id: Default::default(),
         }
     }

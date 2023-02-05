@@ -3,13 +3,13 @@ use bevy_renet::renet::{DefaultChannel, RenetClient};
 
 use crate::{
     messages::server::server_message::ServerMessage,
-    resources::server_message_dispatcher::ServerMessageDispatcher,
+    resources::server_message_dispatcher::ServerToClientMessageDispatcher,
 };
 
 pub fn process_messages(
     mut commands: Commands,
     mut client: ResMut<RenetClient>,
-    mut server_message_dispatcher: ResMut<ServerMessageDispatcher>,
+    mut server_message_dispatcher: ResMut<ServerToClientMessageDispatcher>,
 ) {
     while let Some(msg) = client.receive_message(DefaultChannel::Reliable) {
         let event = bincode::deserialize::<ServerMessage>(&msg).unwrap();

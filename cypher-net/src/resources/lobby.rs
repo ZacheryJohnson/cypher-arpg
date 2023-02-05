@@ -1,9 +1,8 @@
-use bevy::{
-    prelude::{Entity, Resource},
-    utils::HashMap,
-};
+use bevy::{prelude::Resource, utils::HashMap};
+
+use crate::net_entity::NetEntityT;
 
 #[derive(Default, Debug, Resource)]
 pub struct Lobby {
-    pub players: HashMap<u64, Entity>,
+    pub player_net_ids: HashMap<u64, NetEntityT>,
 }
