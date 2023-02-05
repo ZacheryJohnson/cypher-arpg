@@ -1605,6 +1605,7 @@ dependencies = [
  "bevy",
  "bevy_renet",
  "cypher-character",
+ "cypher-item",
  "cypher-net",
 ]
 

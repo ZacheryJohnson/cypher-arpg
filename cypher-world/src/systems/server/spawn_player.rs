@@ -60,21 +60,23 @@ fn spawn_player(
         ..default()
     };
 
-    let entity_id = commands
-        .spawn((
-            Character::default(),
-            PlayerController,
-            ServerPlayer,
-            WorldEntity {
-                entity_type: crate::components::world_entity::EntityType::Player { id: player_id },
-            },
-            Collider,
-            Team { id: 1 },
-            transform,
-        ))
-        .id();
+    let mut entity_builder = commands.spawn((
+        Character::default(),
+        PlayerController,
+        ServerPlayer,
+        WorldEntity {
+            entity_type: crate::components::world_entity::EntityType::Player { id: player_id },
+        },
+        Collider,
+        Team { id: 1 },
+        transform,
+    ));
 
-    let net_entity_id = net_entities.register_new(entity_id);
+    let entity_id = entity_builder.id();
+    let net_entity = net_entities.register_new(entity_id);
+    let net_entity_id = net_entity.id;
+
+    entity_builder.insert(net_entity);
 
     server.broadcast_message(
         DefaultChannel::Reliable,

@@ -2,7 +2,7 @@ use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
-use crate::net_entity::NetEntityT;
+use crate::components::net_entity::NetEntityT;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumDiscriminants)]
 // ZJ-TODO: if Rust adds types for enum variants, we can remove the strum discriminant functionality
@@ -24,6 +24,9 @@ pub enum ServerMessage {
     EntityTransformUpdate {
         net_entity_id: NetEntityT,
         transform: Transform,
+    },
+    EntityDestroyed {
+        net_entity_id: NetEntityT,
     },
     ProjectileSpawned {
         projectile_id: u64,

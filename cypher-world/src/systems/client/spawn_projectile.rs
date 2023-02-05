@@ -1,5 +1,7 @@
 use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::{default, Color, Commands, ResMut, Sprite, SpriteBundle, Vec2};
+use cypher_net::client::Client;
+use cypher_net::components::client_entity::ClientEntity;
 use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
 use cypher_net::resources::client_net_entity_registry::ClientNetEntityRegistry;
 use cypher_net::resources::server_message_dispatcher::ServerToClientMessageDispatcher;
@@ -33,6 +35,7 @@ pub fn listen_for_spawn_projectile(
                 let entity_id = commands
                     .spawn((
                         projectile,
+                        ClientEntity,
                         SpriteBundle {
                             sprite: Sprite {
                                 color: Color::rgb(1.0, 0.2, 0.2),

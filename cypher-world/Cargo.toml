@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 cypher-character = { path = "../cypher-character"}
 cypher-net = { path = "../cypher-net" }
+cypher-item = { path = "../cypher-item" }
 
 bevy_renet = "0"
 

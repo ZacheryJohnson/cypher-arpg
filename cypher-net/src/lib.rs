@@ -7,4 +7,4 @@ pub mod server;
 
 pub mod protocol;
 
-pub mod net_entity;
+pub mod components;

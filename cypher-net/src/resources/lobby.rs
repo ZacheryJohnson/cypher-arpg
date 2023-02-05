@@ -1,6 +1,6 @@
 use bevy::{prelude::Resource, utils::HashMap};
 
-use crate::net_entity::NetEntityT;
+use crate::components::net_entity::NetEntityT;
 
 #[derive(Default, Debug, Resource)]
 pub struct Lobby {

@@ -1,6 +1,7 @@
 use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::{Commands, ResMut};
 use bevy_renet::renet::{DefaultChannel, RenetServer};
+use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::client::client_message::{ClientMessage, ClientMessageVariant};
 use cypher_net::messages::server::server_message::ServerMessage;
 use cypher_net::resources::server_message_dispatcher::ClientToServerMessageDispatcher;
@@ -30,9 +31,13 @@ pub fn listen_for_spawn_projectile(
                     team_id: 1,
                 };
 
-                let entity_id = commands.spawn((projectile, *transform)).id();
+                let mut entity_builder = commands.spawn((projectile, *transform, ServerEntity));
 
-                let net_entity_id = net_entities.register_new(entity_id);
+                let entity_id = entity_builder.id();
+                let net_entity = net_entities.register_new(entity_id);
+                let net_entity_id = net_entity.id;
+
+                entity_builder.insert(net_entity);
 
                 println!("Spawning server projectile!");
 

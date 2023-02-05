@@ -53,6 +53,7 @@ use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
 };
+use cypher_world::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::data_manager::DataManager;
@@ -73,7 +74,7 @@ pub fn start(mode: SimulationMode) {
 
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
-                .init_resource::<GameState>()
+                .init_resource::<WorldState>()
                 .init_resource::<NetLimiter>()
                 .init_resource::<ClientNetEntityRegistry>()
                 .add_event::<ServerMessage>()
@@ -88,7 +89,6 @@ pub fn start(mode: SimulationMode) {
                 .add_startup_system(setup_world)
                 .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
-                .add_system(update_projectiles)
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
                 .add_system(
                     show_loot_on_hover
@@ -100,7 +100,7 @@ pub fn start(mode: SimulationMode) {
         }
         SimulationMode::ServerOnly => {
             app.init_resource::<DataManager>()
-                .init_resource::<GameState>()
+                .init_resource::<WorldState>()
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
@@ -116,7 +116,6 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(GameServer::new_renet_server())
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(update_projectiles)
                 .add_system(loot_generation)
                 .add_system_set(server::get_server_systems());
         }
@@ -126,7 +125,7 @@ pub fn start(mode: SimulationMode) {
 
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
-                .init_resource::<GameState>()
+                .init_resource::<WorldState>()
                 .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .init_resource::<NetLimiter>()
@@ -148,7 +147,6 @@ pub fn start(mode: SimulationMode) {
                 .add_startup_system(setup_world)
                 .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
-                .add_system(update_projectiles)
                 .add_system(loot_generation)
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
                 .add_system(
@@ -172,42 +170,15 @@ struct PlayerSettings {
     pub alt_mode_enabled: bool,
 }
 
-#[derive(Component, Clone)]
-struct LootPoolDropper {
-    // change this name pls
-    pub loot_pool_def: Arc<Mutex<LootPoolDefinition>>,
-}
-
 #[derive(Component)]
 struct ItemDrop {
     pub item_instance: Weak<Mutex<ItemInstance>>,
-}
-
-struct DeathEvent {
-    pub loot_pool: Option<LootPoolDropper>,
-    pub position: Vec2,
 }
 
 #[derive(Default, Resource)]
 struct LootGenerator {
     pub event_reader: ManualEventReader<DeathEvent>,
     pub loot_pool_generator: LootPoolItemGenerator,
-}
-
-#[derive(Resource)]
-struct GameState {
-    pub item_drops: HashMap<Entity, Arc<Mutex<ItemInstance>>>,
-
-    pub death_events: Events<DeathEvent>,
-}
-
-impl Default for GameState {
-    fn default() -> Self {
-        Self {
-            item_drops: HashMap::new(),
-            death_events: default(),
-        }
-    }
 }
 
 #[derive(Component)]
@@ -495,72 +466,9 @@ fn adjust_camera_for_mouse_position(
     }
 }
 
-fn update_projectiles(
-    mut commands: Commands,
-    mut projectiles: Query<(&mut Transform, &mut Projectile, Entity)>,
-    mut collidables: Query<
-        (
-            &Transform,
-            &mut HitPoints,
-            &Team,
-            Option<&LootPoolDropper>,
-            Entity,
-        ),
-        (With<Collider>, Without<Projectile>),
-    >,
-    time: Res<Time>,
-    mut game_state: ResMut<GameState>,
-) {
-    for (mut projectile_transform, mut projectile, entity) in &mut projectiles {
-        let forward = -projectile_transform.local_y();
-        let distance = forward * projectile.move_speed * time.delta().as_secs_f32();
-        projectile_transform.translation += distance;
-        projectile.lifetime -= distance.length();
-
-        if projectile.lifetime <= 0.0 {
-            commands.entity(entity).despawn();
-            continue;
-        }
-
-        for (collidable_transform, mut hit_points, team, maybe_loot, collider_entity) in
-            &mut collidables
-        {
-            // Don't let projectiles hurt their own team members
-            if team.id == projectile.team_id {
-                continue;
-            }
-
-            if collide(
-                projectile_transform.translation,
-                projectile_transform.scale.truncate(),
-                collidable_transform.translation,
-                collidable_transform.scale.truncate(),
-            )
-            .is_some()
-            {
-                hit_points.health -= projectile.damage;
-                if hit_points.health <= 0.0 {
-                    commands.entity(collider_entity).despawn();
-
-                    game_state.death_events.send(DeathEvent {
-                        loot_pool: maybe_loot.map(|loot| loot.to_owned()),
-                        position: Vec2 {
-                            x: collidable_transform.translation.x,
-                            y: collidable_transform.translation.y,
-                        },
-                    });
-                }
-
-                commands.entity(entity).despawn();
-                continue;
-            }
-        }
-    }
-}
-
 fn loot_generation(
     mut commands: Commands,
-    mut game_state: ResMut<GameState>,
+    mut game_state: ResMut<WorldState>,
     mut generator: ResMut<LootGenerator>,
     data_manager: Res<DataManager>,
 ) {
@@ -716,7 +624,7 @@ fn pickup_dropped_item_under_cursor(
     dropped_items: Query<(Entity, &Transform), With<ItemDrop>>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
-    mut game_state: ResMut<GameState>,
+    mut game_state: ResMut<WorldState>,
 ) {
     if !keyboard_input.pressed(KeyCode::E) {
         return;

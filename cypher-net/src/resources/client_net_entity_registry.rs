@@ -3,7 +3,7 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::net_entity::NetEntityT;
+use crate::components::net_entity::NetEntityT;
 
 #[derive(Default, Debug, Resource)]
 pub struct ClientNetEntityRegistry {
@@ -21,5 +21,9 @@ impl ClientNetEntityRegistry {
         self.net_entities.insert(net_entity_id, local_entity);
 
         net_entity_id
+    }
+
+    pub fn delete(&mut self, net_entity: &NetEntityT) {
+        self.net_entities.remove(net_entity);
     }
 }
