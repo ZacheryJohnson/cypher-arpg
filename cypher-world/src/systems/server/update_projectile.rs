@@ -61,16 +61,6 @@ pub fn update_projectiles(
             continue;
         }
 
-        server.broadcast_message(
-            DefaultChannel::Unreliable,
-            ServerMessage::EntityTransformUpdate {
-                net_entity_id: net_entity.id,
-                transform: projectile_transform.clone(),
-            }
-            .serialize()
-            .unwrap(),
-        );
-
         for (
             collidable_transform,
             mut hit_points,
@@ -131,5 +121,15 @@ pub fn update_projectiles(
                 continue;
             }
         }
+
+        server.broadcast_message(
+            DefaultChannel::Unreliable,
+            ServerMessage::EntityTransformUpdate {
+                net_entity_id: net_entity.id,
+                transform: projectile_transform.clone(),
+            }
+            .serialize()
+            .unwrap(),
+        );
     }
 }
