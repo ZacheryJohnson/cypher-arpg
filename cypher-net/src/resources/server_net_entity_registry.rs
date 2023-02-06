@@ -19,11 +19,10 @@ impl ServerNetEntityRegistry {
 
         self.net_entities.insert(net_entity.id, entity);
 
-        println!(
-            "Registering entity {entity:?} as net entity {}",
-            net_entity.id
-        );
-
         net_entity
+    }
+
+    pub fn delete(&mut self, net_entity: &NetEntityT) {
+        self.net_entities.remove(net_entity);
     }
 }

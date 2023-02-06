@@ -21,6 +21,8 @@ pub struct WorldState {
     pub item_drops: HashMap<Entity, Arc<Mutex<ItemInstance>>>,
 
     pub death_events: Events<DeathEvent>,
+
+    pub has_spawned_enemies: bool, // ZJ-TODO: overhaul
 }
 
 impl Default for WorldState {
@@ -28,6 +30,7 @@ impl Default for WorldState {
         Self {
             item_drops: HashMap::new(),
             death_events: default(),
+            has_spawned_enemies: false,
         }
     }
 }

@@ -16,8 +16,6 @@ impl ClientNetEntityRegistry {
     }
 
     pub fn register_new(&mut self, net_entity_id: NetEntityT, local_entity: Entity) -> NetEntityT {
-        println!("Registering entity {local_entity:?} as net ID {net_entity_id}");
-
         self.net_entities.insert(net_entity_id, local_entity);
 
         net_entity_id

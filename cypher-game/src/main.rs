@@ -2,7 +2,6 @@ use std::env;
 
 use simulation::SimulationMode;
 
-pub mod data_manager;
 pub mod simulation;
 
 fn main() {

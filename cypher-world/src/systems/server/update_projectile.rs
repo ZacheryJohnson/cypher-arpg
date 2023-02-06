@@ -38,6 +38,7 @@ pub fn update_projectiles(
     time: Res<Time>,
     mut game_state: ResMut<WorldState>,
     mut server: ResMut<RenetServer>,
+    mut net_entities: ResMut<ServerNetEntityRegistry>,
 ) {
     for (mut projectile_transform, mut projectile, entity, net_entity) in &mut projectiles {
         let forward = -projectile_transform.local_y();
@@ -46,7 +47,6 @@ pub fn update_projectiles(
         projectile.lifetime -= distance.length();
 
         if projectile.lifetime <= 0.0 {
-            println!("Killing projectile {entity:?} for expired lifetime");
             commands.entity(entity).despawn();
 
             server.broadcast_message(
@@ -96,6 +96,16 @@ pub fn update_projectiles(
                 hit_points.health -= projectile.damage;
                 if hit_points.health <= 0.0 {
                     commands.entity(collider_entity).despawn();
+                    net_entities.delete(&collider_net_entity.id);
+
+                    server.broadcast_message(
+                        DefaultChannel::Reliable,
+                        ServerMessage::EntityDestroyed {
+                            net_entity_id: collider_net_entity.id,
+                        }
+                        .serialize()
+                        .unwrap(),
+                    );
 
                     game_state.death_events.send(DeathEvent {
                         loot_pool: maybe_loot.map(|loot| loot.to_owned()),
@@ -106,8 +116,8 @@ pub fn update_projectiles(
                     });
                 }
 
-                println!("Killing projectile {entity:?} for collision");
                 commands.entity(entity).despawn();
+                net_entities.delete(&net_entity.id);
 
                 server.broadcast_message(
                     DefaultChannel::Reliable,

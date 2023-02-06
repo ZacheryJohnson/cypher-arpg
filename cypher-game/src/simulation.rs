@@ -53,10 +53,9 @@ use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
 };
+use cypher_world::resources::data_manager::DataManager;
 use cypher_world::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
 use rand::{seq::SliceRandom, thread_rng};
-
-use crate::data_manager::DataManager;
 
 pub enum SimulationMode {
     ClientOnly,
@@ -234,52 +233,6 @@ fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: R
                 }),
             ));
         });
-
-    spawn_enemies(commands, data_manager);
-}
-
-fn spawn_enemies(mut commands: Commands, data_manager: Res<DataManager>) {
-    let positions = vec![
-        Vec2 {
-            x: -250.0,
-            y: 250.0,
-        },
-        Vec2 { x: 0.0, y: 250.0 },
-        Vec2 { x: 250.0, y: 250.0 },
-    ];
-
-    for position in positions {
-        commands.spawn((
-            HitPoints { health: 10.0 },
-            Collider,
-            Team { id: 2 },
-            LootPoolDropper {
-                loot_pool_def: data_manager
-                    .loot_pool_db
-                    .lock()
-                    .unwrap()
-                    .definition(1)
-                    .unwrap(),
-            },
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::rgb(1.0, 0.0, 0.3),
-                    custom_size: Some(Vec2 { x: 1., y: 1. }),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: position.extend(0.0),
-                    scale: Vec3 {
-                        x: 45.,
-                        y: 45.,
-                        z: 1.0,
-                    },
-                    ..default()
-                },
-                ..default()
-            },
-        ));
-    }
 }
 
 fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {

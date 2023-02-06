@@ -39,8 +39,6 @@ pub fn listen_for_spawn_projectile(
 
                 entity_builder.insert(net_entity);
 
-                println!("Spawning server projectile!");
-
                 server.broadcast_message(
                     DefaultChannel::Reliable,
                     ServerMessage::ProjectileSpawned {

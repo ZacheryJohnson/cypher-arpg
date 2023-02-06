@@ -30,8 +30,6 @@ pub fn listen_for_spawn_projectile(
                     team_id: 1,
                 };
 
-                println!("Spawning client projectile!");
-
                 let entity_id = commands
                     .spawn((
                         projectile,

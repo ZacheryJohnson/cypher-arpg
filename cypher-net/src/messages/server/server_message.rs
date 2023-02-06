@@ -33,6 +33,11 @@ pub enum ServerMessage {
         net_entity_id: NetEntityT,
         transform: Transform,
     },
+    EnemySpawned {
+        enemy_id: u64,
+        net_entity_id: NetEntityT,
+        transform: Transform,
+    },
 }
 
 impl ServerMessage {

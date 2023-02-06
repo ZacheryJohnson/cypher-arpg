@@ -1,3 +1,4 @@
+use bevy::ecs::event::ManualEventReader;
 use std::collections::HashMap;
 
 use crate::messages::client::client_message::{ClientMessage, ClientMessageVariant};

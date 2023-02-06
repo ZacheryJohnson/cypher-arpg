@@ -2,6 +2,8 @@ use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::*;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
 use cypher_character::character::Character;
+use cypher_net::components::net_entity::NetEntity;
+use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
 use cypher_net::resources::lobby::Lobby;
 use cypher_net::resources::server_message_dispatcher::ServerToServerMessageDispatcher;
@@ -10,11 +12,7 @@ use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
 use crate::components::collider::Collider;
 use crate::components::player_controller::PlayerController;
 use crate::components::team::Team;
-use crate::components::world_entity::WorldEntity;
-
-// ZJ-TODO: fixme
-#[derive(Component)]
-pub struct ServerPlayer;
+use crate::components::world_entity::{EntityType, WorldEntity};
 
 pub fn listen_for_spawn_player(
     mut commands: Commands,
@@ -22,7 +20,7 @@ pub fn listen_for_spawn_player(
     mut dispatcher: ResMut<ServerToServerMessageDispatcher>,
     mut lobby: ResMut<Lobby>,
     mut net_entities: ResMut<ServerNetEntityRegistry>,
-    players: Query<&Transform, With<ServerPlayer>>,
+    players: Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
 ) {
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerConnected);
     if let Some(events) = maybe_events {
@@ -48,7 +46,7 @@ fn spawn_player(
     lobby: &mut ResMut<Lobby>,
     net_entities: &mut ResMut<ServerNetEntityRegistry>,
     player_id: u64,
-    players: &Query<&Transform, With<ServerPlayer>>,
+    world_entities: &Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
 ) {
     let transform = Transform {
         translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),
@@ -63,7 +61,7 @@ fn spawn_player(
     let mut entity_builder = commands.spawn((
         Character::default(),
         PlayerController,
-        ServerPlayer,
+        ServerEntity,
         WorldEntity {
             entity_type: crate::components::world_entity::EntityType::Player { id: player_id },
         },
@@ -89,17 +87,39 @@ fn spawn_player(
         .unwrap(),
     );
 
+    // Replicate world entities to new players upon connection
+    for (transform, world_entity, existing_net_entity) in world_entities {
+        match world_entity.entity_type {
+            EntityType::Player { .. } => {}
+            EntityType::Enemy { id: enemy_id } => {
+                server.send_message(
+                    player_id,
+                    DefaultChannel::Reliable,
+                    ServerMessage::EnemySpawned {
+                        enemy_id,
+                        net_entity_id: existing_net_entity.id,
+                        transform: *transform,
+                    }
+                    .serialize()
+                    .unwrap(),
+                );
+            }
+            EntityType::Projectile { .. } => { /* no need to replicate projectiles on connect (right?) */
+            }
+        }
+    }
+
     for (other_player_id, net_entity_id) in &lobby.player_net_ids {
         let local_entity = net_entities
             .get_local_entity(net_entity_id)
             .expect("failed to get local entity for net entity");
-        let transform = players.get(*local_entity).unwrap();
+        let (transform, _, existing_net_entity) = world_entities.get(*local_entity).unwrap();
         server.send_message(
             player_id,
             DefaultChannel::Reliable,
             ServerMessage::PlayerSpawned {
                 player_id: *other_player_id,
-                net_entity_id: *net_entity_id,
+                net_entity_id: existing_net_entity.id,
                 transform: *transform,
             }
             .serialize()
