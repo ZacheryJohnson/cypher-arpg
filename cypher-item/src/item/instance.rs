@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize, Serializer};
 use std::{
     fmt::Display,
     sync::{Arc, Mutex},
@@ -7,13 +8,22 @@ use cypher_core::affix::instance::AffixInstance;
 
 use super::definition::ItemDefinition;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ItemInstance {
     pub guid: String,
 
+    #[serde(serialize_with = "serialize_definition")]
+    #[serde(rename = "item_def_id")]
     pub definition: Arc<Mutex<ItemDefinition>>,
 
     pub affixes: Vec<AffixInstance>,
+}
+
+fn serialize_definition<S>(definition: &Arc<Mutex<ItemDefinition>>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_u64(definition.lock().unwrap().id.into())
 }
 
 /// Rarity is a misnomer in our implementation, but is the standard for the genre

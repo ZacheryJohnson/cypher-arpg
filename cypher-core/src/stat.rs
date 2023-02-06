@@ -30,7 +30,7 @@ impl Display for StatModifier {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StatList {
     modifiers: HashMap<Stat, f32>,
 }
