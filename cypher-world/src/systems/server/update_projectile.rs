@@ -97,6 +97,8 @@ pub fn update_projectiles(
                         .unwrap(),
                     );
 
+                    println!("Server - sending death event");
+
                     game_state.death_events.send(DeathEvent {
                         loot_pool: maybe_loot.map(|loot| loot.to_owned()),
                         position: Vec2 {

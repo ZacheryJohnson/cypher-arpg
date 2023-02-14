@@ -31,7 +31,7 @@ fn handle_client_message(
     dispatcher: &mut ResMut<ClientToServerMessageDispatcher>,
 ) {
     if let Some(player_net_entity) = lobby.player_net_ids.get(&client_id) {
-        let client_message = bincode::deserialize::<ClientMessage>(&message).unwrap();
+        let client_message = serde_json::de::from_slice(&message).unwrap();
         match client_message {
             ClientMessage::PlayerTransformUpdate { transform } => {
                 // ZJ-TODO: handle this elsewhere - don't immediately broadcast update, verify it's legit

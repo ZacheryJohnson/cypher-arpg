@@ -13,4 +13,5 @@ pub enum EntityType {
     Player { id: u64 },
     Enemy { id: u64 },
     Projectile { id: u64 },
+    DroppedItem { id: u64 },
 }

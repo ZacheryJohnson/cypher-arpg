@@ -3,9 +3,53 @@ use crate::affix::definition::{AffixDefinition, AffixDefinitionId, AffixTierId};
 use crate::affix::instance::AffixInstance;
 use crate::data::DataDefinitionDatabase;
 use crate::stat::StatList;
-use serde::de::{DeserializeSeed, MapAccess, Visitor};
+use serde::de::{DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::sync::{Arc, Mutex};
+
+pub struct AffixInstanceVecDeserializer {
+    pub affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
+}
+
+impl<'de> DeserializeSeed<'de> for AffixInstanceVecDeserializer {
+    type Value = Vec<AffixInstance>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct AffixInstanceVecVisitor {
+            affix_db: Arc<Mutex<AffixDefinitionDatabase>>,
+        }
+
+        impl<'de> Visitor<'de> for AffixInstanceVecVisitor {
+            type Value = Vec<AffixInstance>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("AffixInstance vector")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let mut instances = vec![];
+
+                while let Some(instance) = seq.next_element_seed(AffixInstanceDeserializer {
+                    affix_db: self.affix_db.clone(),
+                })? {
+                    instances.push(instance);
+                }
+
+                Ok(instances)
+            }
+        }
+
+        deserializer.deserialize_seq(AffixInstanceVecVisitor {
+            affix_db: self.affix_db,
+        })
+    }
+}
 
 struct AffixInstanceDeserializer {
     affix_db: Arc<Mutex<AffixDefinitionDatabase>>,

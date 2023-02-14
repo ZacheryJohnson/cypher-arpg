@@ -1544,6 +1544,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cypher-data"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "cypher-core",
+ "cypher-item",
+]
+
+[[package]]
 name = "cypher-data-editor"
 version = "0.1.0"
 dependencies = [
@@ -1567,6 +1576,7 @@ dependencies = [
  "bevy_renet",
  "cypher-character",
  "cypher-core",
+ "cypher-data",
  "cypher-item",
  "cypher-net",
  "cypher-world",
@@ -1591,8 +1601,12 @@ dependencies = [
  "bevy",
  "bevy_renet",
  "bincode",
+ "cypher-core",
+ "cypher-data",
+ "cypher-item",
  "postcard",
  "serde",
+ "serde_json",
  "strum",
  "strum_macros",
  "tokio",
@@ -1606,8 +1620,11 @@ dependencies = [
  "bevy_renet",
  "cypher-character",
  "cypher-core",
+ "cypher-data",
  "cypher-item",
  "cypher-net",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

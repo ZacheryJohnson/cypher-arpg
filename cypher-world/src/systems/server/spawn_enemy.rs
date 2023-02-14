@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
 use cypher_character::character::Character;
 use cypher_core::data::DataDefinitionDatabase;
+use cypher_data::resources::data_manager::DataManager;
 use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
 use cypher_net::resources::lobby::Lobby;
@@ -14,7 +15,6 @@ use crate::components::collider::Collider;
 use crate::components::hit_points::HitPoints;
 use crate::components::team::Team;
 use crate::components::world_entity::{EntityType, WorldEntity};
-use crate::resources::data_manager::DataManager;
 use crate::resources::world_state::{LootPoolDropper, WorldState};
 
 pub fn should_spawn_initial_enemies(world_state: Res<WorldState>) -> ShouldRun {

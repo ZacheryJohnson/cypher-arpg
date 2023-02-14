@@ -49,7 +49,7 @@ impl ClientToServerMessageDispatcher {
 
 impl ServerToClientMessageDispatcher {
     pub fn send(&mut self, message: ServerMessage) {
-        let variant: ServerMessageVariant = message.into();
+        let variant: ServerMessageVariant = message.clone().into();
 
         if let Some(events) = self.event_map.get_mut(&variant) {
             events.send(message);
@@ -75,7 +75,7 @@ impl ServerToClientMessageDispatcher {
 
 impl ServerToServerMessageDispatcher {
     pub fn send(&mut self, message: ServerMessage) {
-        let variant: ServerMessageVariant = message.into();
+        let variant: ServerMessageVariant = message.clone().into();
 
         if let Some(events) = self.event_map.get_mut(&variant) {
             events.send(message);

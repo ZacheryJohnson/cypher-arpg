@@ -2,9 +2,11 @@ use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
+use cypher_item::item::instance::ItemInstance;
+
 use crate::components::net_entity::NetEntityT;
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, EnumDiscriminants)]
+#[derive(Clone, Debug, Deserialize, Serialize, EnumDiscriminants)]
 // ZJ-TODO: if Rust adds types for enum variants, we can remove the strum discriminant functionality
 #[strum_discriminants(vis(pub))]
 #[strum_discriminants(name(ServerMessageVariant))]
@@ -38,11 +40,16 @@ pub enum ServerMessage {
         net_entity_id: NetEntityT,
         transform: Transform,
     },
+    ItemDropped {
+        item_instance_raw: Vec<u8>,
+        net_entity_id: NetEntityT,
+        transform: Transform,
+    },
 }
 
 impl ServerMessage {
     pub fn serialize(&self) -> Option<Vec<u8>> {
-        if let Ok(bytes) = bincode::serialize(&self) {
+        if let Ok(bytes) = serde_json::ser::to_vec(&self) {
             Some(bytes)
         } else {
             None

@@ -8,7 +8,7 @@ use crate::stat::StatList;
 
 use super::definition::{AffixDefinition, AffixTierId};
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct AffixInstance {
     #[serde(serialize_with = "serialize_definition")]
     #[serde(rename = "affix_def_id")]

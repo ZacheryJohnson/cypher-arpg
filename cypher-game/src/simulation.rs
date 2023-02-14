@@ -27,6 +27,7 @@ use cypher_core::{
     data::{DataDefinitionDatabase, DataInstanceGenerator},
     stat::Stat,
 };
+use cypher_data::resources::data_manager::DataManager;
 use cypher_item::{
     item::instance::{ItemInstance, ItemInstanceRarityTier},
     loot_pool::{
@@ -48,12 +49,13 @@ use cypher_net::{
     server::GameServer,
     systems::{client, server},
 };
+use cypher_world::components::dropped_item::DroppedItem;
 use cypher_world::components::projectile::Projectile;
 use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
 };
-use cypher_world::resources::data_manager::DataManager;
+use cypher_world::resources::loot_generator::LootGenerator;
 use cypher_world::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -100,7 +102,6 @@ pub fn start(mode: SimulationMode) {
         SimulationMode::ServerOnly => {
             app.init_resource::<DataManager>()
                 .init_resource::<WorldState>()
-                .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
                     1.0 / 30.0,
@@ -108,6 +109,7 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<ServerNetEntityRegistry>()
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
+                .init_resource::<LootGenerator>()
                 .add_plugins(MinimalPlugins)
                 .add_plugin(LogPlugin::default())
                 .add_plugin(AssetPlugin::default()) // ZJ-TODO: remove this line, projectiles needs refactor
@@ -115,7 +117,6 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(GameServer::new_renet_server())
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(loot_generation)
                 .add_system_set(server::get_server_systems());
         }
         SimulationMode::ClientAndServer => {
@@ -125,7 +126,6 @@ pub fn start(mode: SimulationMode) {
             app.init_resource::<PlayerSettings>()
                 .init_resource::<DataManager>()
                 .init_resource::<WorldState>()
-                .init_resource::<LootGenerator>()
                 .init_resource::<Lobby>()
                 .init_resource::<NetLimiter>()
                 .init_resource::<ClientNetEntityRegistry>()
@@ -134,6 +134,7 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<ServerToClientMessageDispatcher>()
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
+                .init_resource::<LootGenerator>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -146,7 +147,6 @@ pub fn start(mode: SimulationMode) {
                 .add_startup_system(setup_world)
                 .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
-                .add_system(loot_generation)
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
                 .add_system(
                     show_loot_on_hover
@@ -167,17 +167,6 @@ pub fn start(mode: SimulationMode) {
 struct PlayerSettings {
     pub mouse_pan_enabled: bool,
     pub alt_mode_enabled: bool,
-}
-
-#[derive(Component)]
-struct ItemDrop {
-    pub item_instance: Weak<Mutex<ItemInstance>>,
-}
-
-#[derive(Default, Resource)]
-struct LootGenerator {
-    pub event_reader: ManualEventReader<DeathEvent>,
-    pub loot_pool_generator: LootPoolItemGenerator,
 }
 
 #[derive(Component)]
@@ -419,77 +408,11 @@ fn adjust_camera_for_mouse_position(
     }
 }
 
-fn loot_generation(
-    mut commands: Commands,
-    mut game_state: ResMut<WorldState>,
-    mut generator: ResMut<LootGenerator>,
-    data_manager: Res<DataManager>,
-) {
-    game_state.death_events.update();
-
-    let loot_pool_generator = generator.loot_pool_generator.clone();
-    let death_events = &game_state.death_events;
-
-    let mut maybe_item_arc: Option<(Arc<Mutex<ItemInstance>>, Entity)> = None;
-
-    for death_event in generator.event_reader.iter(death_events) {
-        let dropper = death_event.loot_pool.as_ref().unwrap();
-        let item = loot_pool_generator.generate(
-            dropper.loot_pool_def.clone(),
-            &LootPoolCriteria {},
-            &(
-                data_manager.affix_db.clone(),
-                data_manager.affix_pool_db.clone(),
-                data_manager.item_db.clone(),
-            ),
-        );
-
-        if let Some(item_instance) = item {
-            let item_arc = Arc::new(Mutex::new(item_instance));
-            let rarity = item_arc.lock().unwrap().rarity();
-
-            let new_entity = commands.spawn((
-                ItemDrop {
-                    item_instance: Arc::downgrade(&item_arc),
-                },
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: match rarity {
-                            ItemInstanceRarityTier::Common => Color::hex("aeb5b0").unwrap(), // off-gray
-                            ItemInstanceRarityTier::Uncommon => Color::hex("077d1b").unwrap(), // green
-                            ItemInstanceRarityTier::Rare => Color::hex("1f4acc").unwrap(), // blue
-                            ItemInstanceRarityTier::Fabled => Color::hex("52288a").unwrap(), // purple
-                        },
-                        custom_size: Some(Vec2 { x: 1., y: 1. }),
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: death_event.position.extend(0.0),
-                        scale: Vec3 {
-                            x: 10.0,
-                            y: 10.0,
-                            z: 1.0,
-                        },
-                        ..default()
-                    },
-                    ..default()
-                },
-            ));
-
-            maybe_item_arc = Some((item_arc, new_entity.id()));
-        }
-    }
-
-    if let Some(item) = maybe_item_arc {
-        game_state.item_drops.insert(item.1, item.0);
-    }
-}
-
 fn show_loot_on_hover(
     mut ui_elements: Query<&mut BackgroundColor, With<UiItemTextBox>>,
     mut ui_text: Query<&mut Text, With<UiItemText>>,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
-    dropped_items: Query<(&ItemDrop, &Transform)>,
+    dropped_items: Query<(&DroppedItem, &Transform)>,
     windows: Res<Windows>,
     asset_server: Res<AssetServer>,
     player_settings: Res<PlayerSettings>,
@@ -529,9 +452,7 @@ fn show_loot_on_hover(
                 )
                 .is_some()
                 {
-                    let Some(item_instance) = item_drop.item_instance.upgrade() else {
-                        break;
-                    };
+                    let item_instance = item_drop.item_instance.clone();
 
                     color.0 = Color::rgba(0.15, 0.15, 0.15, 1.0);
                     text.sections.push(TextSection {
@@ -574,7 +495,7 @@ fn pickup_dropped_item_under_cursor(
     mut commands: Commands,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
     mut character_query: Query<&mut Character, With<PlayerController>>,
-    dropped_items: Query<(Entity, &Transform), With<ItemDrop>>,
+    dropped_items: Query<(Entity, &Transform), With<DroppedItem>>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
     mut game_state: ResMut<WorldState>,

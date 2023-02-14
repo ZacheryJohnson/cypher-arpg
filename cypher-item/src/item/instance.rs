@@ -8,7 +8,7 @@ use cypher_core::affix::instance::AffixInstance;
 
 use super::definition::ItemDefinition;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ItemInstance {
     pub guid: String,
 

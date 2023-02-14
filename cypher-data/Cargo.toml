@@ -1,5 +1,5 @@
 [package]
-name = "cypher-game"
+name = "cypher-data"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,14 +7,7 @@ edition = "2021"
 
 [dependencies]
 cypher-core = { path = "../cypher-core"}
-cypher-character = { path = "../cypher-character"}
 cypher-item = { path = "../cypher-item"}
-cypher-world = { path = "../cypher-world" }
-cypher-net = { path = "../cypher-net" }
-cypher-data = { path = "../cypher-data" }
-
-rand = "0.8.5"
-bevy_renet = "0"
 
 [dependencies.bevy]
 workspace = true

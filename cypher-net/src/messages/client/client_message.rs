@@ -25,7 +25,7 @@ pub enum ClientMessage {
 
 impl ClientMessage {
     pub fn serialize(&self) -> Option<Vec<u8>> {
-        if let Ok(bytes) = bincode::serialize(&self) {
+        if let Ok(bytes) = serde_json::ser::to_vec(&self) {
             Some(bytes)
         } else {
             None

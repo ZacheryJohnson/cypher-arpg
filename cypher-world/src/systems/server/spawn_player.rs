@@ -104,8 +104,8 @@ fn spawn_player(
                     .unwrap(),
                 );
             }
-            EntityType::Projectile { .. } => { /* no need to replicate projectiles on connect (right?) */
-            }
+            EntityType::Projectile { .. } => {} /* no need to replicate projectiles on connect (right?) */
+            EntityType::DroppedItem { .. } => {}
         }
     }
 
