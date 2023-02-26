@@ -1,3 +1,5 @@
+use crate::components::world_decoration::WorldDecoration;
+use bevy::prelude::{Quat, Query, Transform, Without};
 use bevy::{
     ecs::event::ManualEventReader,
     prelude::{Commands, ResMut},
@@ -10,10 +12,16 @@ use cypher_net::{
     },
 };
 
+/// How much we should prefer the server prediction to the client prediction.
+/// 0.0 = use server value only; ignore client
+/// 1.0 = use client value only; ignore server
+const PREDICTION_SCALE: f32 = 0.75;
+
 pub fn listen_for_entity_transform_update(
     mut dispatcher: ResMut<ServerToClientMessageDispatcher>,
     mut commands: Commands,
     mut net_entities: ResMut<ClientNetEntityRegistry>,
+    transforms: Query<&Transform, Without<WorldDecoration>>,
 ) {
     let maybe_events = dispatcher.get_events(ServerMessageVariant::EntityTransformUpdate);
     if let Some(events) = maybe_events {
@@ -24,14 +32,32 @@ pub fn listen_for_entity_transform_update(
                 transform,
             } = event
             {
-                let local_entity = net_entities.get_local_entity(net_entity_id);
-
-                if local_entity.is_none() {
+                let Some(local_entity) = net_entities.get_local_entity(net_entity_id) else {
                     println!("Received transform update for unknown net entity {net_entity_id}");
                     continue;
-                }
+                };
 
-                commands.entity(*local_entity.unwrap()).insert(*transform);
+                // We have predicted where we are currently
+                // Rather than unconditionally accepting what the server says,
+                // take the average of the two transforms.
+                let server_transform = *transform;
+                let Ok(local_transform) = transforms.get(*local_entity) else {
+                    println!("Unknown transform for local entity {local_entity:?}");
+                    continue;
+                };
+
+                let mut updated_transform = Transform::default();
+                updated_transform.translation = server_transform
+                    .translation
+                    .lerp(local_transform.translation, PREDICTION_SCALE);
+                updated_transform.scale = server_transform
+                    .scale
+                    .lerp(local_transform.scale, PREDICTION_SCALE);
+                updated_transform.rotation = server_transform
+                    .rotation
+                    .lerp(local_transform.rotation, PREDICTION_SCALE);
+
+                commands.entity(*local_entity).insert(updated_transform);
             }
         }
     }

@@ -45,6 +45,9 @@ pub enum ServerMessage {
         net_entity_id: NetEntityT,
         transform: Transform,
     },
+    ItemPickedUp {
+        item_instance_raw: Vec<u8>,
+    },
 }
 
 impl ServerMessage {

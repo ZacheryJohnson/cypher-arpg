@@ -1,6 +1,8 @@
 use bevy::prelude::{IntoSystemDescriptor, SystemSet};
 
+mod handle_item_pickup;
 mod loot_generation;
+mod player_transform_update;
 mod spawn_enemy;
 mod spawn_player;
 mod spawn_projectile;
@@ -17,4 +19,6 @@ pub fn get_server_systems() -> SystemSet {
                 .with_run_criteria(spawn_enemy::should_spawn_initial_enemies),
         )
         .with_system(loot_generation::loot_generation)
+        .with_system(handle_item_pickup::listen_for_item_pickup)
+        .with_system(player_transform_update::listen_for_player_transform_update)
 }

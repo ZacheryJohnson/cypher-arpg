@@ -8,6 +8,7 @@ use std::{
     time::Duration,
 };
 
+use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
 use bevy::{
     app::ScheduleRunnerSettings,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -28,6 +29,7 @@ use cypher_core::{
     stat::Stat,
 };
 use cypher_data::resources::data_manager::DataManager;
+use cypher_item::item::deserializer::ItemInstanceDeserializer;
 use cypher_item::{
     item::instance::{ItemInstance, ItemInstanceRarityTier},
     loot_pool::{
@@ -35,6 +37,7 @@ use cypher_item::{
         generator::{LootPoolCriteria, LootPoolItemGenerator},
     },
 };
+use cypher_net::messages::server::server_message::ServerMessageVariant;
 use cypher_net::resources::server_message_dispatcher::{
     ClientToServerMessageDispatcher, ServerToClientMessageDispatcher,
     ServerToServerMessageDispatcher,
@@ -51,6 +54,7 @@ use cypher_net::{
 };
 use cypher_world::components::dropped_item::DroppedItem;
 use cypher_world::components::projectile::Projectile;
+use cypher_world::components::world_decoration::WorldDecoration;
 use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
@@ -91,6 +95,7 @@ pub fn start(mode: SimulationMode) {
                 .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
+                .add_system(on_item_picked_up.with_run_criteria(client_connected))
                 .add_system(
                     show_loot_on_hover
                         .with_run_criteria(client_connected)
@@ -148,6 +153,7 @@ pub fn start(mode: SimulationMode) {
                 .add_system(handle_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
+                .add_system(on_item_picked_up.with_run_criteria(client_connected))
                 .add_system(
                     show_loot_on_hover
                         .with_run_criteria(client_connected)
@@ -247,7 +253,7 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
             }
             .extend(-10.0);
 
-            commands.spawn(tile);
+            commands.spawn((tile, WorldDecoration));
         }
     }
 }
@@ -492,13 +498,12 @@ fn show_loot_on_hover(
 }
 
 fn pickup_dropped_item_under_cursor(
-    mut commands: Commands,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
-    mut character_query: Query<&mut Character, With<PlayerController>>,
     dropped_items: Query<(Entity, &Transform), With<DroppedItem>>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
-    mut game_state: ResMut<WorldState>,
+    mut client: ResMut<RenetClient>,
+    mut net_entities: ResMut<ClientNetEntityRegistry>,
 ) {
     if !keyboard_input.pressed(KeyCode::E) {
         return;
@@ -534,27 +539,60 @@ fn pickup_dropped_item_under_cursor(
                 )
                 .is_some()
                 {
-                    let mut character = character_query.single_mut();
-
-                    // Remove existing components that reference the item
-                    let item_instance = game_state.item_drops.remove(&entity).unwrap();
-                    commands.entity(entity).despawn_recursive();
-
-                    // Knowing that we have the only instance, unwrap the Arc<Mutex<ItemInstance>> to move out the ItemInstance
-                    let item = Arc::try_unwrap(item_instance)
-                        .unwrap()
-                        .into_inner()
-                        .unwrap();
-                    character
-                        .equipment
-                        .equip(item)
-                        .expect("ZJ-TODO: UI to show failure to equip");
-
-                    println!("{}", character.equipment);
-
+                    println!("Looking for local entity {entity:?}");
+                    if let Some(net_entity) = net_entities.get_net_entity(entity) {
+                        client.send_message(
+                            DefaultChannel::Reliable,
+                            ClientMessage::PickupItem {
+                                net_entity_id: *net_entity,
+                            }
+                            .serialize()
+                            .unwrap(),
+                        );
+                    } else {
+                        panic!("failed to find net entity for local entity - this should be a UI warning");
+                    }
                     return;
                 }
             }
+        }
+    }
+}
+
+fn on_item_picked_up(
+    mut dispatcher: ResMut<ServerToClientMessageDispatcher>,
+    mut character_query: Query<&mut Character, With<CameraFollow>>,
+    data_manager: Res<DataManager>,
+) {
+    let maybe_events = dispatcher.get_events(ServerMessageVariant::ItemPickedUp);
+    if let Some(events) = maybe_events {
+        let mut reader: ManualEventReader<ServerMessage> = Default::default();
+        for event in reader.iter(&events) {
+            let ServerMessage::ItemPickedUp { item_instance_raw } = event else {
+                println!("dispatcher not doing stuff right lmao");
+                continue;
+            };
+
+            let deserializer = ItemInstanceDeserializer {
+                affix_db: data_manager.affix_db.clone(),
+                item_db: data_manager.item_db.clone(),
+            };
+
+            // ZJ-TODO: have equip be different
+
+            let item_instance = deserializer
+                .deserialize(&mut serde_json::Deserializer::from_slice(
+                    &item_instance_raw.as_slice(),
+                ))
+                .unwrap();
+
+            let mut character = character_query.single_mut();
+            character
+                .equipment
+                .equip(item_instance)
+                .expect("ZJ-TODO: UI to show failure to equip");
+
+            println!("{}", character.equipment);
         }
     }
 }

@@ -1581,6 +1581,8 @@ dependencies = [
  "cypher-net",
  "cypher-world",
  "rand",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

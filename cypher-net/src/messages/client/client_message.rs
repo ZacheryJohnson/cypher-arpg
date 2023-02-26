@@ -1,3 +1,4 @@
+use crate::components::net_entity::NetEntityT;
 use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
@@ -21,6 +22,11 @@ pub enum ClientMessage {
         projectile_id: u64,
         transform: Transform,
     },
+
+    /// Requests to pick up an item.
+    ///
+    /// ZJ-TODO: this should evaluate the caller's position to ensure they're close enough.
+    PickupItem { net_entity_id: NetEntityT },
 }
 
 impl ClientMessage {
