@@ -10,3 +10,6 @@ uuid = { version = "1.2", features = ["v4"] }
 
 cypher-core = { path = "../cypher-core" }
 cypher-item = { path = "../cypher-item" }
+
+[dependencies.bevy]
+workspace = true

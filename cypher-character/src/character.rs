@@ -1,7 +1,9 @@
-use cypher_core::stat::{Stat, StatList};
+use bevy::prelude::Component;
+use cypher_core::stat::{Stat, StatList, StatModifier};
 
 use crate::equipment::Equipment;
 
+#[derive(Component)]
 pub struct Character {
     pub stats: Vec<StatList>,
 
@@ -9,6 +11,12 @@ pub struct Character {
 
     // TODO: refactor
     current_health: u32,
+}
+
+impl Default for Character {
+    fn default() -> Self {
+        Character::new(vec![StatList::from(&[StatModifier(Stat::Health, 10.)])])
+    }
 }
 
 impl Character {

@@ -1,7 +1,10 @@
-pub mod client_message;
-pub mod net_message;
-pub mod server_message;
+pub mod messages;
+pub mod resources;
+pub mod systems;
 
-pub mod net_character;
-
+pub mod client;
 pub mod server;
+
+pub mod protocol;
+
+pub mod components;

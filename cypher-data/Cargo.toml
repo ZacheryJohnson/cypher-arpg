@@ -1,0 +1,15 @@
+[package]
+name = "cypher-data"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cypher-core = { path = "../cypher-core"}
+cypher-item = { path = "../cypher-item"}
+
+[dependencies.bevy]
+workspace = true
+features = ["default"]
+

@@ -1,4 +1,5 @@
 /target
 /.vscode
+/.idea
 
 cypher-game/assets/game_data/**.json
