@@ -1,4 +1,5 @@
 use crate::components::dropped_item::DroppedItem;
+use crate::components::world_entity::{EntityType, WorldEntity};
 use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::{
     default, Color, Commands, Res, ResMut, Sprite, SpriteBundle, Transform, Vec2, Vec3,
@@ -58,6 +59,9 @@ pub fn listen_for_item_dropped(
                     },
                     transform: *transform,
                     ..default()
+                },
+                WorldEntity {
+                    entity_type: EntityType::DroppedItem { id: 0 },
                 },
             ));
 

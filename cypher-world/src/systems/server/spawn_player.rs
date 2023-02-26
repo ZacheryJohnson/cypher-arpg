@@ -8,8 +8,10 @@ use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageV
 use cypher_net::resources::lobby::Lobby;
 use cypher_net::resources::server_message_dispatcher::ServerToServerMessageDispatcher;
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
+use serde::Serialize;
 
 use crate::components::collider::Collider;
+use crate::components::dropped_item::DroppedItem;
 use crate::components::player_controller::PlayerController;
 use crate::components::team::Team;
 use crate::components::world_entity::{EntityType, WorldEntity};
@@ -21,6 +23,7 @@ pub fn listen_for_spawn_player(
     mut lobby: ResMut<Lobby>,
     mut net_entities: ResMut<ServerNetEntityRegistry>,
     players: Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
+    dropped_items: Query<(&DroppedItem)>,
 ) {
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerConnected);
     if let Some(events) = maybe_events {
@@ -34,6 +37,7 @@ pub fn listen_for_spawn_player(
                     &mut net_entities,
                     *id,
                     &players,
+                    &dropped_items,
                 );
             }
         }
@@ -47,6 +51,7 @@ fn spawn_player(
     net_entities: &mut ResMut<ServerNetEntityRegistry>,
     player_id: u64,
     world_entities: &Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
+    dropped_items: &Query<(&DroppedItem)>,
 ) {
     let transform = Transform {
         translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),
@@ -89,6 +94,8 @@ fn spawn_player(
 
     // Replicate world entities to new players upon connection
     for (transform, world_entity, existing_net_entity) in world_entities {
+        println!("Replicating world entity {world_entity:?}");
+
         match world_entity.entity_type {
             EntityType::Player { .. } => {}
             EntityType::Enemy { id: enemy_id } => {
@@ -105,7 +112,29 @@ fn spawn_player(
                 );
             }
             EntityType::Projectile { .. } => {} /* no need to replicate projectiles on connect (right?) */
-            EntityType::DroppedItem { .. } => {}
+            EntityType::DroppedItem { .. } => {
+                let local_entity = net_entities
+                    .get_local_entity(&existing_net_entity.id)
+                    .unwrap();
+                let dropped_item = dropped_items.get(*local_entity).unwrap();
+
+                println!("Dropping item for new client");
+
+                server.send_message(
+                    player_id,
+                    DefaultChannel::Reliable,
+                    ServerMessage::ItemDropped {
+                        item_instance_raw: serde_json::ser::to_vec(
+                            &*dropped_item.item_instance.lock().unwrap(),
+                        )
+                        .unwrap(),
+                        net_entity_id,
+                        transform: *transform,
+                    }
+                    .serialize()
+                    .unwrap(),
+                );
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 use crate::components::dropped_item::DroppedItem;
+use crate::components::world_entity::{EntityType, WorldEntity};
 use crate::resources::loot_generator::LootGenerator;
 use crate::resources::world_state::WorldState;
 use bevy::ecs::event::ManualEventReader;
@@ -9,6 +10,7 @@ use cypher_core::data::DataInstanceGenerator;
 use cypher_data::resources::data_manager::DataManager;
 use cypher_item::item::instance::ItemInstance;
 use cypher_item::loot_pool::generator::LootPoolCriteria;
+use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::server::server_message::ServerMessage;
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
 use std::sync::{Arc, Mutex};
@@ -60,6 +62,10 @@ pub fn loot_generation(
                     item_instance: item_arc.clone(),
                 },
                 transform,
+                WorldEntity {
+                    entity_type: EntityType::DroppedItem { id: 0 },
+                },
+                ServerEntity,
             ));
 
             let entity_id = entity_builder.id();
