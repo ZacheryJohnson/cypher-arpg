@@ -74,6 +74,8 @@ pub fn loot_generation(
 
             entity_builder.insert(net_entity);
 
+            println!("Server dropping item with net ID {net_entity_id}");
+
             server.broadcast_message(
                 DefaultChannel::Reliable,
                 ServerMessage::ItemDropped {

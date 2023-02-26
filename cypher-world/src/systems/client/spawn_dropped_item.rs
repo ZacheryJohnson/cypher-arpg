@@ -67,7 +67,7 @@ pub fn listen_for_item_dropped(
 
             let local_entity_id = entity_builder.id();
             net_entities.register_new(*net_entity_id, local_entity_id);
-            println!("Local entity {local_entity_id:?} has net entity {net_entity_id:?}");
+            println!("Dropped item with local entity {local_entity_id:?} has net entity {net_entity_id:?}");
         }
     }
 }

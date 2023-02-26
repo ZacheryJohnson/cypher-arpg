@@ -37,6 +37,7 @@ use cypher_item::{
         generator::{LootPoolCriteria, LootPoolItemGenerator},
     },
 };
+use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::server::server_message::ServerMessageVariant;
 use cypher_net::resources::server_message_dispatcher::{
     ClientToServerMessageDispatcher, ServerToClientMessageDispatcher,
@@ -499,13 +500,13 @@ fn show_loot_on_hover(
 
 fn pickup_dropped_item_under_cursor(
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
-    dropped_items: Query<(Entity, &Transform), With<DroppedItem>>,
+    dropped_items: Query<(Entity, &Transform), (With<DroppedItem>, Without<ServerEntity>)>,
     keyboard_input: Res<Input<KeyCode>>,
     windows: Res<Windows>,
     mut client: ResMut<RenetClient>,
     mut net_entities: ResMut<ClientNetEntityRegistry>,
 ) {
-    if !keyboard_input.pressed(KeyCode::E) {
+    if !keyboard_input.just_pressed(KeyCode::E) {
         return;
     }
 
@@ -539,7 +540,6 @@ fn pickup_dropped_item_under_cursor(
                 )
                 .is_some()
                 {
-                    println!("Looking for local entity {entity:?}");
                     if let Some(net_entity) = net_entities.get_net_entity(entity) {
                         client.send_message(
                             DefaultChannel::Reliable,

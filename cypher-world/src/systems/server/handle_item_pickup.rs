@@ -37,9 +37,12 @@ pub fn listen_for_item_pickup(
                 panic!("what the dispatcher doin")
             };
 
-            let item_local_entity = net_entities
-                .get_local_entity(net_entity_id)
-                .expect("unknown net entity");
+            println!("Looking for net entity ID {net_entity_id}");
+
+            let Some(item_local_entity) = net_entities.get_local_entity(net_entity_id) else {
+                println!("Unknown net entity {net_entity_id} for item pickup");
+                continue;
+            };
 
             // ZJ-TODO: validate player can pick up item
             //
