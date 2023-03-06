@@ -60,7 +60,6 @@ use cypher_world::components::{
     camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
     player_controller::PlayerController, team::Team, world_entity::WorldEntity,
 };
-use cypher_world::resources::dungeon_generator::{DungeonGenerationSettings, DungeonGenerator};
 use cypher_world::resources::loot_generator::LootGenerator;
 use cypher_world::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
 use rand::{seq::SliceRandom, thread_rng};
@@ -117,7 +116,6 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
                 .init_resource::<LootGenerator>()
-                .init_resource::<DungeonGenerator>()
                 .add_plugins(MinimalPlugins)
                 .add_plugin(LogPlugin::default())
                 .add_plugin(AssetPlugin::default()) // ZJ-TODO: remove this line, projectiles needs refactor
@@ -143,7 +141,6 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
                 .init_resource::<LootGenerator>()
-                .init_resource::<DungeonGenerator>()
                 .add_plugins(DefaultPlugins)
                 .add_plugin(FrameTimeDiagnosticsPlugin::default())
                 .add_plugin(LogDiagnosticsPlugin::default())
@@ -234,11 +231,7 @@ fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: R
         });
 }
 
-fn setup_world(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    dungeon_generator: Res<DungeonGenerator>,
-) {
+fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tile1 = SpriteBundle {
         texture: asset_server.load("sprite/medievalTile_57.png"),
         ..default()
@@ -250,23 +243,6 @@ fn setup_world(
     };
 
     let mut tileset = vec![tile1, tile2];
-
-    let dungeon = dungeon_generator.generate(&DungeonGenerationSettings {
-        max_rooms: 1,
-        ..default()
-    });
-
-    for room in dungeon.rooms {
-        for tile in room.tiles {
-            let mut tile_sprite = tileset
-                .get_mut(tile.tile_type_id as usize)
-                .expect("what")
-                .clone();
-            tile_sprite.transform = tile.transform;
-
-            commands.spawn((tile_sprite, WorldDecoration));
-        }
-    }
 }
 
 fn handle_input(

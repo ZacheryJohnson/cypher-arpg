@@ -1,0 +1,37 @@
+{
+  "0004": {
+    "tile_type_id": 4,
+    "northern_compatibility": 0,
+    "eastern_compatibility": 5,
+    "southern_compatibility": 0,
+    "western_compatibility": 5
+  },
+  "0006": {
+    "tile_type_id": 6,
+    "northern_compatibility": 10,
+    "eastern_compatibility": 0,
+    "southern_compatibility": 10,
+    "western_compatibility": 0
+  },
+  "0007": {
+    "tile_type_id": 7,
+    "northern_compatibility": 5,
+    "eastern_compatibility": 0,
+    "southern_compatibility": 5,
+    "western_compatibility": 0
+  },
+  "0013": {
+    "tile_type_id": 13,
+    "northern_compatibility": 10,
+    "eastern_compatibility": 11,
+    "southern_compatibility": 10,
+    "western_compatibility": 11
+  },
+  "0049": {
+    "tile_type_id": 49,
+    "northern_compatibility": 0,
+    "eastern_compatibility": 0,
+    "southern_compatibility": 0,
+    "western_compatibility": 0
+  }
+}

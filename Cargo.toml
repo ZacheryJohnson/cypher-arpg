@@ -5,6 +5,7 @@ members = [
     "cypher-character",
     "cypher-net",
     "cypher-data",
+    "cypher-dungeon",
 
     "cypher-data-editor",
 

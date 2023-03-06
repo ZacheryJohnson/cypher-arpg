@@ -1569,6 +1569,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cypher-dungeon"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "rand",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
 name = "cypher-game"
 version = "0.1.0"
 dependencies = [
