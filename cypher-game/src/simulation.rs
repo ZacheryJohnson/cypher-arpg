@@ -7,12 +7,12 @@ use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
 use bevy::{
     app::ScheduleRunnerSettings,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    ecs::{event::ManualEventReader, schedule::ShouldRun},
+    ecs::event::ManualEventReader,
     log::LogPlugin,
-    math::Vec3A,
     prelude::*,
-    render::camera::{Camera, RenderTarget},
+    render::camera::Camera,
     sprite::collide_aabb::collide,
+    window::PrimaryWindow,
 };
 use bevy_renet::{
     renet::{DefaultChannel, RenetClient},
@@ -36,7 +36,6 @@ use cypher_net::{
         lobby::Lobby, net_limiter::NetLimiter, server_net_entity_registry::ServerNetEntityRegistry,
     },
     server::GameServer,
-    systems::server,
 };
 use cypher_world::components::dropped_item::DroppedItem;
 use cypher_world::components::world_decoration::WorldDecoration;
@@ -77,18 +76,19 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_keyboard_input.with_run_criteria(client_connected))
-                .add_system(handle_mouse_input.with_run_criteria(client_connected))
-                .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
-                .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
-                .add_system(on_item_picked_up.with_run_criteria(client_connected))
-                .add_system(
+                .add_systems((
+                    handle_keyboard_input.run_if(client_connected),
+                    handle_mouse_input.run_if(client_connected),
+                    adjust_camera_for_mouse_position.run_if(client_connected),
+                    pickup_dropped_item_under_cursor.run_if(client_connected),
+                    on_item_picked_up.run_if(client_connected),
                     show_loot_on_hover
-                        .with_run_criteria(client_connected)
+                        .run_if(client_connected)
                         .after(pickup_dropped_item_under_cursor),
-                )
-                .add_system_set(cypher_world::systems::client::get_client_systems())
-                .add_system_set(cypher_net::systems::client::get_client_systems());
+                ));
+
+            cypher_world::systems::client::register_client_systems(&mut app);
+            cypher_net::systems::client::register_client_systems(&mut app);
         }
         SimulationMode::ServerOnly => {
             app.init_resource::<DataManager>()
@@ -107,8 +107,10 @@ pub fn start(mode: SimulationMode) {
                 .add_plugin(RenetServerPlugin::default())
                 .insert_resource(GameServer::new_renet_server())
                 .add_startup_system(setup)
-                .add_startup_system(setup_world)
-                .add_system_set(server::get_server_systems());
+                .add_startup_system(setup_world);
+
+            cypher_net::systems::server::register_server_systems(&mut app);
+            cypher_world::systems::server::register_server_systems(&mut app);
         }
         SimulationMode::ClientAndServer => {
             let renet_client = Client::new_renet_client();
@@ -136,20 +138,21 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_keyboard_input.with_run_criteria(client_connected))
-                .add_system(handle_mouse_input.with_run_criteria(client_connected))
-                .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
-                .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
-                .add_system(on_item_picked_up.with_run_criteria(client_connected))
-                .add_system(
+                .add_systems((
+                    handle_keyboard_input.run_if(client_connected),
+                    handle_mouse_input.run_if(client_connected),
+                    adjust_camera_for_mouse_position.run_if(client_connected),
+                    pickup_dropped_item_under_cursor.run_if(client_connected),
+                    on_item_picked_up.run_if(client_connected),
                     show_loot_on_hover
-                        .with_run_criteria(client_connected)
+                        .run_if(client_connected)
                         .after(pickup_dropped_item_under_cursor),
-                )
-                .add_system_set(cypher_world::systems::server::get_server_systems())
-                .add_system_set(cypher_world::systems::client::get_client_systems())
-                .add_system_set(cypher_net::systems::server::get_server_systems())
-                .add_system_set(cypher_net::systems::client::get_client_systems());
+                ));
+
+            cypher_world::systems::client::register_client_systems(&mut app);
+            cypher_world::systems::server::register_server_systems(&mut app);
+            cypher_net::systems::client::register_client_systems(&mut app);
+            cypher_net::systems::server::register_server_systems(&mut app);
         }
     };
 
@@ -168,13 +171,9 @@ struct UiItemText;
 #[derive(Component)]
 struct UiItemTextBox;
 
-fn client_connected(client: Res<RenetClient>, time: Res<Time>) -> ShouldRun {
+fn client_connected(client: Res<RenetClient>, time: Res<Time>) -> bool {
     // ZJ-TODO: this is a hack - we should instead listen for our player being spawned
-    if client.is_connected() && time.startup().elapsed().as_secs_f32() > 1.0 {
-        ShouldRun::Yes
-    } else {
-        ShouldRun::No
-    }
+    client.is_connected() && time.startup().elapsed().as_secs_f32() > 1.0
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -364,17 +363,15 @@ fn handle_mouse_input(
 }
 
 fn adjust_camera_for_mouse_position(
-    mut query: Query<&mut Transform, With<CameraFollow>>,
-    mut camera_query: Query<(&Camera, &mut GlobalTransform)>,
-    windows: Res<Windows>,
+    mut query: Query<&mut Transform, (With<CameraFollow>, Without<Camera>)>,
+    mut camera_query: Query<(&Camera, &mut Transform)>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
     settings: Res<PlayerSettings>,
 ) {
     if let Ok((camera, mut camera_transform)) = camera_query.get_single_mut() {
-        let window = if let RenderTarget::Window(id) = camera.target {
-            windows.get(id).unwrap()
-        } else {
-            windows.get_primary().unwrap()
-        };
+        let window = window_query
+            .get_single()
+            .expect("failed to get primary camera");
 
         let mut player_transform = query.single_mut();
         let mut camera_position = (
@@ -412,11 +409,11 @@ fn adjust_camera_for_mouse_position(
             player_transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), angle);
         }
 
-        *camera_transform.translation_mut() = Vec3A::from(Vec3 {
+        camera_transform.translation = Vec3 {
             x: camera_position.0,
             y: camera_position.1,
             z: 0.0,
-        });
+        };
     }
 }
 
@@ -425,7 +422,7 @@ fn show_loot_on_hover(
     mut ui_text: Query<&mut Text, With<UiItemText>>,
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
     dropped_items: Query<(&DroppedItem, &Transform)>,
-    windows: Res<Windows>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
     asset_server: Res<AssetServer>,
     player_settings: Res<PlayerSettings>,
 ) {
@@ -435,11 +432,9 @@ fn show_loot_on_hover(
     text.sections.clear();
 
     if let Ok((camera, camera_transform)) = camera_query.get_single_mut() {
-        let window = if let RenderTarget::Window(id) = camera.target {
-            windows.get(id).unwrap()
-        } else {
-            windows.get_primary().unwrap()
-        };
+        let window = window_query
+            .get_single()
+            .expect("failed to get primary camera");
 
         if let Some(cursor_position) = window.cursor_position() {
             // get the size of the window
@@ -507,7 +502,7 @@ fn pickup_dropped_item_under_cursor(
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
     dropped_items: Query<(Entity, &Transform), (With<DroppedItem>, Without<ServerEntity>)>,
     keyboard_input: Res<Input<KeyCode>>,
-    windows: Res<Windows>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
     mut client: ResMut<RenetClient>,
     mut net_entities: ResMut<ClientNetEntityRegistry>,
 ) {
@@ -516,11 +511,9 @@ fn pickup_dropped_item_under_cursor(
     }
 
     if let Ok((camera, camera_transform)) = camera_query.get_single_mut() {
-        let window = if let RenderTarget::Window(id) = camera.target {
-            windows.get(id).unwrap()
-        } else {
-            windows.get_primary().unwrap()
-        };
+        let window = window_query
+            .get_single()
+            .expect("failed to get primary camera");
 
         if let Some(cursor_position) = window.cursor_position() {
             // get the size of the window

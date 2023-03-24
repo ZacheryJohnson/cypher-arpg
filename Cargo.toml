@@ -25,5 +25,5 @@ opt-level = 1
 opt-level = 3
 
 [workspace.dependencies]
-bevy = { version = "0.9", default-features = false }
+bevy = { version = "0.10", default-features = false }
 bincode = { version = "1.3" }

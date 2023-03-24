@@ -1,4 +1,3 @@
-use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
 use cypher_core::data::DataDefinitionDatabase;
@@ -13,12 +12,8 @@ use crate::components::team::Team;
 use crate::components::world_entity::{EntityType, WorldEntity};
 use crate::resources::world_state::{LootPoolDropper, WorldState};
 
-pub fn should_spawn_initial_enemies(world_state: Res<WorldState>) -> ShouldRun {
-    if world_state.has_spawned_enemies {
-        ShouldRun::No
-    } else {
-        ShouldRun::Yes
-    }
+pub fn should_spawn_initial_enemies(world_state: Res<WorldState>) -> bool {
+    !world_state.has_spawned_enemies
 }
 
 pub fn spawn_initial_enemies(
