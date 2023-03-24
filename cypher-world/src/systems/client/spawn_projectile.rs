@@ -1,6 +1,5 @@
 use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::{default, Color, Commands, ResMut, Sprite, SpriteBundle, Vec2};
-use cypher_net::client::Client;
 use cypher_net::components::client_entity::ClientEntity;
 use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
 use cypher_net::resources::client_net_entity_registry::ClientNetEntityRegistry;
@@ -16,9 +15,9 @@ pub fn listen_for_spawn_projectile(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::ProjectileSpawned);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             if let ServerMessage::ProjectileSpawned {
-                projectile_id,
+                projectile_id: _,
                 net_entity_id,
                 transform,
             } = event

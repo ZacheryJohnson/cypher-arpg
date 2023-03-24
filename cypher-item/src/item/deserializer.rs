@@ -1,13 +1,11 @@
 use std::sync::{Arc, Mutex};
 
 use cypher_core::affix::deserializer::AffixInstanceVecDeserializer;
-use cypher_core::affix::instance::AffixInstance;
 use cypher_core::{
     affix::{database::AffixDefinitionDatabase, definition::AffixDefinitionId},
     affix_pool::database::{AffixPoolDefinitionDatabase, AffixPoolDefinitionId},
     data::DataDefinitionDatabase,
 };
-use serde::de::Error;
 use serde::{
     de::{DeserializeSeed, MapAccess, SeqAccess, Visitor},
     Deserialize, Deserializer,
@@ -15,7 +13,6 @@ use serde::{
 
 use crate::item::classification::ItemClassification;
 use crate::item::database::ItemDefinitionDatabase;
-use crate::item::definition::ItemDefinitionId;
 use crate::item::instance::ItemInstance;
 
 use super::definition::ItemDefinition;

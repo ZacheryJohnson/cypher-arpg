@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Serialize, Serializer};
 use std::{
     fmt::Display,
     sync::{Arc, Mutex},
@@ -23,7 +23,7 @@ fn serialize_definition<S>(definition: &Arc<Mutex<ItemDefinition>>, s: S) -> Res
 where
     S: Serializer,
 {
-    s.serialize_u64(definition.lock().unwrap().id.into())
+    s.serialize_u64(definition.lock().unwrap().id)
 }
 
 /// Rarity is a misnomer in our implementation, but is the standard for the genre

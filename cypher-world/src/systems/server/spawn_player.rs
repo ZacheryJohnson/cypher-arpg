@@ -8,7 +8,6 @@ use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageV
 use cypher_net::resources::lobby::Lobby;
 use cypher_net::resources::server_message_dispatcher::ServerToServerMessageDispatcher;
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
-use serde::Serialize;
 
 use crate::components::collider::Collider;
 use crate::components::dropped_item::DroppedItem;
@@ -23,12 +22,12 @@ pub fn listen_for_spawn_player(
     mut lobby: ResMut<Lobby>,
     mut net_entities: ResMut<ServerNetEntityRegistry>,
     players: Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
-    dropped_items: Query<(&DroppedItem)>,
+    dropped_items: Query<&DroppedItem>,
 ) {
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerConnected);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             if let ServerMessage::PlayerConnected { id } = event {
                 spawn_player(
                     &mut commands,
@@ -51,7 +50,7 @@ fn spawn_player(
     net_entities: &mut ResMut<ServerNetEntityRegistry>,
     player_id: u64,
     world_entities: &Query<(&Transform, &WorldEntity, &NetEntity), With<ServerEntity>>,
-    dropped_items: &Query<(&DroppedItem)>,
+    dropped_items: &Query<&DroppedItem>,
 ) {
     let transform = Transform {
         translation: Vec2 { x: 0.0, y: 0.0 }.extend(0.0),

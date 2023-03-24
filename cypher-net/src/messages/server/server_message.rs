@@ -2,8 +2,6 @@ use bevy::prelude::Transform;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
-use cypher_item::item::instance::ItemInstance;
-
 use crate::components::net_entity::NetEntityT;
 
 #[derive(Clone, Debug, Deserialize, Serialize, EnumDiscriminants)]

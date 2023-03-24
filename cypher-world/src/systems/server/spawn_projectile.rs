@@ -20,7 +20,7 @@ pub fn listen_for_spawn_projectile(
     let maybe_events = dispatcher.get_events(ClientMessageVariant::SpawnProjectile);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ClientMessageWithId> = Default::default();
-        for ClientMessageWithId { msg: event, id: _ } in reader.iter(&events) {
+        for ClientMessageWithId { msg: event, id: _ } in reader.iter(events) {
             let ClientMessage::SpawnProjectile {projectile_id, transform} = event else {
                 panic!("dispatcher what is you doing")
             };

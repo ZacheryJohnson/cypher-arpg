@@ -1,37 +1,26 @@
-use crate::components::dropped_item::DroppedItem;
-use crate::components::player_controller::PlayerController;
 use bevy::ecs::event::ManualEventReader;
-use bevy::prelude::{Commands, Entity, Query, Res, ResMut, With};
+use bevy::prelude::{Commands, ResMut};
 use bevy_renet::renet::{DefaultChannel, RenetServer};
-use cypher_character::character::Character;
-use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::client::client_message::{ClientMessage, ClientMessageVariant};
 use cypher_net::messages::server::server_message::ServerMessage;
-use cypher_net::resources::lobby::Lobby;
 use cypher_net::resources::server_message_dispatcher::{
     ClientMessageWithId, ClientToServerMessageDispatcher,
 };
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
-use std::sync::Arc;
-
-use crate::components::projectile::Projectile;
 
 pub fn listen_for_item_pickup(
     mut commands: Commands,
     mut server: ResMut<RenetServer>,
     mut dispatcher: ResMut<ClientToServerMessageDispatcher>,
     mut net_entities: ResMut<ServerNetEntityRegistry>,
-    mut player_query: Query<(&mut Character), With<PlayerController>>,
-    mut dropped_items_query: Query<&mut DroppedItem>,
-    lobby: Res<Lobby>,
 ) {
     let maybe_events = dispatcher.get_events(ClientMessageVariant::PickupItem);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ClientMessageWithId> = Default::default();
         for ClientMessageWithId {
             msg: event,
-            id: client_id,
-        } in reader.iter(&events)
+            id: _client_id,
+        } in reader.iter(events)
         {
             let ClientMessage::PickupItem { net_entity_id } = event else {
                 panic!("what the dispatcher doin")

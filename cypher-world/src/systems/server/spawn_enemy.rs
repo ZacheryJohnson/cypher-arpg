@@ -1,14 +1,10 @@
-use bevy::ecs::event::ManualEventReader;
 use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
-use cypher_character::character::Character;
 use cypher_core::data::DataDefinitionDatabase;
 use cypher_data::resources::data_manager::DataManager;
 use cypher_net::components::server_entity::ServerEntity;
-use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
-use cypher_net::resources::lobby::Lobby;
-use cypher_net::resources::server_message_dispatcher::ServerToServerMessageDispatcher;
+use cypher_net::messages::server::server_message::ServerMessage;
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
 
 use crate::components::collider::Collider;
@@ -89,7 +85,7 @@ fn spawn_enemy(
                 .definition(1)
                 .unwrap(),
         },
-        transform.clone(),
+        *transform,
     ));
 
     let entity_id = entity_builder.id();
