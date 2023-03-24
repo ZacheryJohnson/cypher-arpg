@@ -30,7 +30,7 @@ impl NetLimiter {
     where
         ChannelT: Into<u8>,
     {
-        if let Some(last_msg_sent) = self.messages_by_id.get_mut(&std::mem::discriminant(&msg)) {
+        if let Some(last_msg_sent) = self.messages_by_id.get_mut(&std::mem::discriminant(msg)) {
             if last_msg_sent.elapsed().as_secs_f32() <= (1.0 / self.messages_per_second) {
                 return false;
             }
@@ -38,7 +38,7 @@ impl NetLimiter {
             *last_msg_sent = Instant::now();
         } else {
             self.messages_by_id
-                .insert(std::mem::discriminant(&msg), Instant::now());
+                .insert(std::mem::discriminant(msg), Instant::now());
         }
 
         let serialized = msg.serialize().unwrap();

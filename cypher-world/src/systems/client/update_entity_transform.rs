@@ -1,5 +1,5 @@
 use crate::components::world_decoration::WorldDecoration;
-use bevy::prelude::{Quat, Query, Transform, Without};
+use bevy::prelude::{Query, Transform, Without};
 use bevy::{
     ecs::event::ManualEventReader,
     prelude::{Commands, ResMut},
@@ -26,7 +26,7 @@ pub fn listen_for_entity_transform_update(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::EntityTransformUpdate);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             if let ServerMessage::EntityTransformUpdate {
                 net_entity_id,
                 transform,
@@ -46,16 +46,17 @@ pub fn listen_for_entity_transform_update(
                     continue;
                 };
 
-                let mut updated_transform = Transform::default();
-                updated_transform.translation = server_transform
-                    .translation
-                    .lerp(local_transform.translation, PREDICTION_SCALE);
-                updated_transform.scale = server_transform
-                    .scale
-                    .lerp(local_transform.scale, PREDICTION_SCALE);
-                updated_transform.rotation = server_transform
-                    .rotation
-                    .lerp(local_transform.rotation, PREDICTION_SCALE);
+                let updated_transform = Transform {
+                    translation: server_transform
+                        .translation
+                        .lerp(local_transform.translation, PREDICTION_SCALE),
+                    rotation: server_transform
+                        .rotation
+                        .lerp(local_transform.rotation, PREDICTION_SCALE),
+                    scale: server_transform
+                        .scale
+                        .lerp(local_transform.scale, PREDICTION_SCALE),
+                };
 
                 commands.entity(*local_entity).insert(updated_transform);
             }

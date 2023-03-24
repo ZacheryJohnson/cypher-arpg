@@ -1,12 +1,7 @@
 // Bevy queries can get very large - allow them
 #![allow(clippy::type_complexity)]
 
-use std::{
-    collections::HashMap,
-    f32::consts::FRAC_PI_2,
-    sync::{Arc, Mutex, Weak},
-    time::Duration,
-};
+use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
 use bevy::{
@@ -24,19 +19,9 @@ use bevy_renet::{
     RenetClientPlugin, RenetServerPlugin,
 };
 use cypher_character::character::Character;
-use cypher_core::{
-    data::{DataDefinitionDatabase, DataInstanceGenerator},
-    stat::Stat,
-};
+use cypher_core::stat::Stat;
 use cypher_data::resources::data_manager::DataManager;
 use cypher_item::item::deserializer::ItemInstanceDeserializer;
-use cypher_item::{
-    item::instance::{ItemInstance, ItemInstanceRarityTier},
-    loot_pool::{
-        definition::LootPoolDefinition,
-        generator::{LootPoolCriteria, LootPoolItemGenerator},
-    },
-};
 use cypher_net::components::server_entity::ServerEntity;
 use cypher_net::messages::server::server_message::ServerMessageVariant;
 use cypher_net::resources::server_message_dispatcher::{
@@ -51,17 +36,16 @@ use cypher_net::{
         lobby::Lobby, net_limiter::NetLimiter, server_net_entity_registry::ServerNetEntityRegistry,
     },
     server::GameServer,
-    systems::{client, server},
+    systems::server,
 };
 use cypher_world::components::dropped_item::DroppedItem;
-use cypher_world::components::projectile::Projectile;
 use cypher_world::components::world_decoration::WorldDecoration;
 use cypher_world::components::{
-    camera_follow::CameraFollow, collider::Collider, hit_points::HitPoints,
-    player_controller::PlayerController, team::Team, world_entity::WorldEntity,
+    camera_follow::CameraFollow, collider::Collider, player_controller::PlayerController,
+    world_entity::WorldEntity,
 };
 use cypher_world::resources::loot_generator::LootGenerator;
-use cypher_world::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
+use cypher_world::resources::world_state::WorldState;
 use rand::{seq::SliceRandom, thread_rng};
 
 pub enum SimulationMode {
@@ -93,7 +77,8 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_input.with_run_criteria(client_connected))
+                .add_system(handle_keyboard_input.with_run_criteria(client_connected))
+                .add_system(handle_mouse_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
                 .add_system(on_item_picked_up.with_run_criteria(client_connected))
@@ -151,7 +136,8 @@ pub fn start(mode: SimulationMode) {
                 .insert_resource(ClientState { client_id })
                 .add_startup_system(setup)
                 .add_startup_system(setup_world)
-                .add_system(handle_input.with_run_criteria(client_connected))
+                .add_system(handle_keyboard_input.with_run_criteria(client_connected))
+                .add_system(handle_mouse_input.with_run_criteria(client_connected))
                 .add_system(adjust_camera_for_mouse_position.with_run_criteria(client_connected))
                 .add_system(pickup_dropped_item_under_cursor.with_run_criteria(client_connected))
                 .add_system(on_item_picked_up.with_run_criteria(client_connected))
@@ -191,7 +177,7 @@ fn client_connected(client: Res<RenetClient>, time: Res<Time>) -> ShouldRun {
     }
 }
 
-fn setup(mut commands: Commands, data_manager: Res<DataManager>, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     commands
@@ -259,8 +245,7 @@ fn setup_world(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-fn handle_input(
-    mut commands: Commands,
+fn handle_keyboard_input(
     mut player: Query<
         (&mut Transform, &Character),
         (
@@ -271,7 +256,6 @@ fn handle_input(
     >,
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mouse_input: Res<Input<MouseButton>>,
     mut settings: ResMut<PlayerSettings>,
     collidables: Query<&Transform, (With<Collider>, Without<PlayerController>)>,
     mut client: ResMut<RenetClient>,
@@ -330,6 +314,27 @@ fn handle_input(
         transform: *player_transform,
     };
     net_limiter.try_send(&mut client, &msg, DefaultChannel::Unreliable);
+}
+
+fn handle_mouse_input(
+    player: Query<
+        (&Transform, &Character),
+        (
+            With<WorldEntity>,
+            With<PlayerController>,
+            With<CameraFollow>, /* ZJ-TODO: this is a hack, don't use CameraFollow */
+        ),
+    >,
+    mouse_input: Res<Input<MouseButton>>,
+    mut settings: ResMut<PlayerSettings>,
+    mut client: ResMut<RenetClient>,
+    mut net_limiter: ResMut<NetLimiter>,
+) {
+    let maybe_player = player.get_single();
+    let Ok((player_transform, _)) = maybe_player else {
+        println!("Failed to find player to handle input for");
+        return;
+    };
 
     if mouse_input.just_pressed(MouseButton::Middle) {
         settings.mouse_pan_enabled ^= true;
@@ -351,7 +356,7 @@ fn handle_input(
             &ClientMessage::SpawnProjectile {
                 projectile_id: 1, // ZJ-TODO: sadge; would prefer just shoving a Projectile in there,
                 // but then cypher-net would have dependency on game libs
-                transform: transform.clone(),
+                transform,
             },
             DefaultChannel::Reliable,
         );
@@ -567,7 +572,7 @@ fn on_item_picked_up(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::ItemPickedUp);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             let ServerMessage::ItemPickedUp { item_instance_raw } = event else {
                 println!("dispatcher not doing stuff right lmao");
                 continue;
@@ -582,7 +587,7 @@ fn on_item_picked_up(
 
             let item_instance = deserializer
                 .deserialize(&mut serde_json::Deserializer::from_slice(
-                    &item_instance_raw.as_slice(),
+                    item_instance_raw.as_slice(),
                 ))
                 .unwrap();
 

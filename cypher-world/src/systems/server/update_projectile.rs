@@ -1,15 +1,9 @@
-use bevy::ecs::event::ManualEventReader;
-use bevy::prelude::{
-    default, Color, Commands, Entity, Query, Res, ResMut, Sprite, SpriteBundle, Time, Transform,
-    Vec2, With, Without,
-};
+use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Time, Transform, Vec2, With, Without};
 use bevy::sprite::collide_aabb::collide;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
 use cypher_net::components::net_entity::NetEntity;
 use cypher_net::components::server_entity::ServerEntity;
-use cypher_net::messages::server::server_message::{ServerMessage, ServerMessageVariant};
-use cypher_net::resources::client_net_entity_registry::ClientNetEntityRegistry;
-use cypher_net::resources::server_message_dispatcher::ServerToClientMessageDispatcher;
+use cypher_net::messages::server::server_message::ServerMessage;
 use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
 
 use crate::components::collider::Collider;
@@ -18,23 +12,23 @@ use crate::components::projectile::Projectile;
 use crate::components::team::Team;
 use crate::resources::world_state::{DeathEvent, LootPoolDropper, WorldState};
 
+type CollidableQueryAccessT<'a> = (
+    &'a Transform,
+    &'a mut HitPoints,
+    &'a Team,
+    Option<&'a LootPoolDropper>,
+    Entity,
+    &'a NetEntity,
+);
+type CollidableQueryFilterT = (With<Collider>, Without<Projectile>, With<ServerEntity>);
+
 pub fn update_projectiles(
     mut commands: Commands,
     mut projectiles: Query<
         (&mut Transform, &mut Projectile, Entity, &NetEntity),
         With<ServerEntity>,
     >,
-    mut collidables: Query<
-        (
-            &Transform,
-            &mut HitPoints,
-            &Team,
-            Option<&LootPoolDropper>,
-            Entity,
-            &NetEntity,
-        ),
-        (With<Collider>, Without<Projectile>, With<ServerEntity>),
-    >,
+    mut collidables: Query<CollidableQueryAccessT, CollidableQueryFilterT>,
     time: Res<Time>,
     mut game_state: ResMut<WorldState>,
     mut server: ResMut<RenetServer>,
@@ -126,7 +120,7 @@ pub fn update_projectiles(
             DefaultChannel::Unreliable,
             ServerMessage::EntityTransformUpdate {
                 net_entity_id: net_entity.id,
-                transform: projectile_transform.clone(),
+                transform: *projectile_transform,
             }
             .serialize()
             .unwrap(),

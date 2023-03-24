@@ -1,16 +1,12 @@
-use crate::components::dropped_item::DroppedItem;
-use crate::components::player_controller::PlayerController;
 use bevy::ecs::event::ManualEventReader;
-use bevy::prelude::{Commands, Query, Res, ResMut, With};
+use bevy::prelude::{Res, ResMut};
 use bevy_renet::renet::{DefaultChannel, RenetServer};
-use cypher_character::character::Character;
 use cypher_net::messages::client::client_message::{ClientMessage, ClientMessageVariant};
 use cypher_net::messages::server::server_message::ServerMessage;
 use cypher_net::resources::lobby::Lobby;
 use cypher_net::resources::server_message_dispatcher::{
     ClientMessageWithId, ClientToServerMessageDispatcher,
 };
-use cypher_net::resources::server_net_entity_registry::ServerNetEntityRegistry;
 
 pub fn listen_for_player_transform_update(
     mut server: ResMut<RenetServer>,
@@ -23,7 +19,7 @@ pub fn listen_for_player_transform_update(
         for ClientMessageWithId {
             msg: event,
             id: client_id,
-        } in reader.iter(&events)
+        } in reader.iter(events)
         {
             let ClientMessage::PlayerTransformUpdate { transform } = event else {
                 panic!("what the dispatcher doin")

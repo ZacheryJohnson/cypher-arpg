@@ -1,7 +1,5 @@
 use bevy::prelude::Component;
 
-use cypher_item::item::instance::ItemInstance;
-
 /// Any interactable object in world space
 #[derive(Component, Debug)]
 pub struct WorldEntity {

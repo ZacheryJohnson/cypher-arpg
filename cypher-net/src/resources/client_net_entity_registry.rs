@@ -18,8 +18,8 @@ impl ClientNetEntityRegistry {
     pub fn get_net_entity(&mut self, local_entity: Entity) -> Option<&NetEntityT> {
         self.net_entities
             .iter()
-            .find(|(net, local)| **local == local_entity)
-            .map(|(net, local)| net)
+            .find(|(_, local)| **local == local_entity)
+            .map(|(net, _)| net)
     }
 
     pub fn register_new(&mut self, net_entity_id: NetEntityT, local_entity: Entity) -> NetEntityT {

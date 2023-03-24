@@ -21,7 +21,7 @@ pub fn listen_for_spawn_player(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerSpawned);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             spawn_player(
                 &mut commands,
                 event.to_owned(),

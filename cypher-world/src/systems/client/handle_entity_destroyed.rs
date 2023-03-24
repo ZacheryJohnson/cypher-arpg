@@ -12,7 +12,7 @@ pub fn handle_entity_destroyed(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::EntityDestroyed);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(&events) {
+        for event in reader.iter(events) {
             let ServerMessage::EntityDestroyed { net_entity_id } = event else {
                 println!("dispatcher not doing stuff right lmao");
                 continue;
