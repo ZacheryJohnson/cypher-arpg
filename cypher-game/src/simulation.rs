@@ -363,7 +363,7 @@ fn handle_mouse_input(
 }
 
 fn adjust_camera_for_mouse_position(
-    mut query: Query<&mut Transform, With<CameraFollow>>,
+    mut query: Query<&mut Transform, (With<CameraFollow>, Without<Camera>)>,
     mut camera_query: Query<(&Camera, &mut Transform)>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     settings: Res<PlayerSettings>,

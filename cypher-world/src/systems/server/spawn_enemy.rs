@@ -13,7 +13,7 @@ use crate::components::world_entity::{EntityType, WorldEntity};
 use crate::resources::world_state::{LootPoolDropper, WorldState};
 
 pub fn should_spawn_initial_enemies(world_state: Res<WorldState>) -> bool {
-    world_state.has_spawned_enemies
+    !world_state.has_spawned_enemies
 }
 
 pub fn spawn_initial_enemies(
