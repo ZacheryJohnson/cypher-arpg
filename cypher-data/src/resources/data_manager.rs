@@ -43,7 +43,7 @@ impl DataManager {
             &(affix_db.clone(), affix_pool_db.clone()),
         )));
 
-        let mut loot_pool_db_path = game_data_path.clone();
+        let mut loot_pool_db_path = game_data_path;
         loot_pool_db_path.push("loot_pool.json");
         let loot_pool_db = Arc::new(Mutex::new(LootPoolDefinitionDatabase::load_from(
             loot_pool_db_path.to_str().unwrap(),
