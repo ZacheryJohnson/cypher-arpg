@@ -7,8 +7,8 @@ pub mod simulation;
 fn main() {
     let args = env::args().collect::<Vec<String>>();
 
-    let client_only = args.binary_search(&String::from("client")).is_ok();
-    let server_only = args.binary_search(&String::from("server")).is_ok();
+    let client_only = args.contains(&String::from("client"));
+    let server_only = args.contains(&String::from("server"));
 
     println!("Client-only? {client_only} Server-only? {server_only}");
 

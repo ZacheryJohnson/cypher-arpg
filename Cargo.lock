@@ -1706,8 +1706,8 @@ dependencies = [
  "cypher-data",
  "cypher-item",
  "cypher-net",
+ "cypher-ux",
  "cypher-world",
- "rand",
  "serde",
  "serde_json",
 ]
@@ -1742,6 +1742,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cypher-ux"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_renet",
+ "cypher-character",
+ "cypher-core",
+ "cypher-net",
+ "cypher-world",
+]
+
+[[package]]
 name = "cypher-world"
 version = "0.1.0"
 dependencies = [
@@ -1752,6 +1764,7 @@ dependencies = [
  "cypher-data",
  "cypher-item",
  "cypher-net",
+ "rand",
  "serde",
  "serde_json",
 ]
