@@ -1,0 +1,12 @@
+# Don't copy existing build data
+target/
+
+# Don't need any hidden files/directories
+.github/
+.idea/
+.vscode/
+.gitignore
+.dockerignore
+
+# Don't need any markdown files (READMEs, etc)
+*.md

@@ -11,5 +11,3 @@ cypher-item = { path = "../cypher-item"}
 
 [dependencies.bevy]
 workspace = true
-features = ["default"]
-

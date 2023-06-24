@@ -44,6 +44,8 @@ fn spawn_player(
         transform,
     } = spawn_event
     {
+        println!("Spawning player");
+
         let mut entity_builder = commands.spawn((
             Character::default(),
             PlayerController,

@@ -1,0 +1,25 @@
+[package]
+name = "cypher-ux"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cypher-character = { path = "../cypher-character" }
+cypher-core = { path = "../cypher-core" }
+cypher-net = { path = "../cypher-net" }
+cypher-world = { path = "../cypher-world" }
+
+[dependencies.bevy]
+workspace = true
+features = [
+    "bevy_asset",
+    "bevy_core_pipeline",
+    "bevy_render",
+    "bevy_text",
+    "bevy_ui"
+]
+
+[dependencies.bevy_renet]
+workspace = true

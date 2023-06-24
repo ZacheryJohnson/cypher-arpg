@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 rand = "0.8"
 
-serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 strum = "0.24"
@@ -18,4 +17,7 @@ strum_macros = "0.24"
 criterion = "0.3"
 
 [dependencies.bevy]
+workspace = true
+
+[dependencies.serde]
 workspace = true
