@@ -1,3 +1,5 @@
+**This project is not accepting contributions!** Feel free to fork and modify to your heart's content, but I will not be accepting contributions back into this repo.
+
 An ARPG, being worked on in free time and with no planning whatsoever.
 
 ## Game Data
