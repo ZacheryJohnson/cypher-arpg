@@ -44,7 +44,7 @@ pub fn update_projectiles(
             commands.entity(entity).despawn();
 
             server.broadcast_message(
-                DefaultChannel::Reliable,
+                DefaultChannel::ReliableOrdered,
                 ServerMessage::EntityDestroyed {
                     net_entity_id: net_entity.id,
                 }
@@ -83,7 +83,7 @@ pub fn update_projectiles(
                     net_entities.delete(&collider_net_entity.id);
 
                     server.broadcast_message(
-                        DefaultChannel::Reliable,
+                        DefaultChannel::ReliableOrdered,
                         ServerMessage::EntityDestroyed {
                             net_entity_id: collider_net_entity.id,
                         }
@@ -104,7 +104,7 @@ pub fn update_projectiles(
                 net_entities.delete(&net_entity.id);
 
                 server.broadcast_message(
-                    DefaultChannel::Reliable,
+                    DefaultChannel::ReliableOrdered,
                     ServerMessage::EntityDestroyed {
                         net_entity_id: net_entity.id,
                     }

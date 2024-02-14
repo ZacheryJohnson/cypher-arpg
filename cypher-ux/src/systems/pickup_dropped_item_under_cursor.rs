@@ -55,7 +55,7 @@ pub fn pickup_dropped_item_under_cursor(
                 {
                     if let Some(net_entity) = net_entities.get_net_entity(entity) {
                         client.send_message(
-                            DefaultChannel::Reliable,
+                            DefaultChannel::ReliableOrdered,
                             ClientMessage::PickupItem {
                                 net_entity_id: *net_entity,
                             }

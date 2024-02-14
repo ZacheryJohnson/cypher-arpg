@@ -14,8 +14,13 @@ pub fn listen_for_spawn_enemy(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::EnemySpawned);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(events) {
-            let ServerMessage::EnemySpawned { enemy_id: _, net_entity_id, transform } = event else {
+        for event in reader.read(events) {
+            let ServerMessage::EnemySpawned {
+                enemy_id: _,
+                net_entity_id,
+                transform,
+            } = event
+            else {
                 panic!("dispatcher be screwing up");
             };
 

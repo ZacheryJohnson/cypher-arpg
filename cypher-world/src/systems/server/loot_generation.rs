@@ -26,7 +26,7 @@ pub fn loot_generation(
     let death_events = &game_state.death_events;
 
     let mut new_drops = vec![];
-    for death_event in generator.event_reader.iter(death_events) {
+    for death_event in generator.event_reader.read(death_events) {
         println!("Server - received death event");
 
         let dropper = death_event.loot_pool.as_ref().unwrap();
@@ -74,7 +74,7 @@ pub fn loot_generation(
             println!("Server dropping item with net ID {net_entity_id}");
 
             server.broadcast_message(
-                DefaultChannel::Reliable,
+                DefaultChannel::ReliableOrdered,
                 ServerMessage::ItemDropped {
                     item_instance_raw,
                     net_entity_id,

@@ -1,5 +1,5 @@
 use bevy::prelude::ResMut;
-use bevy_renet::renet::{DefaultChannel, RenetClient};
+use bevy_renet::renet::{Bytes, DefaultChannel, RenetClient};
 
 use serde_json;
 
@@ -9,7 +9,7 @@ pub fn process_messages(
     mut client: ResMut<RenetClient>,
     mut server_message_dispatcher: ResMut<ServerToClientMessageDispatcher>,
 ) {
-    while let Some(msg) = client.receive_message(DefaultChannel::Reliable) {
+    while let Some(msg) = client.receive_message(DefaultChannel::ReliableOrdered) {
         handle_message(&mut server_message_dispatcher, msg);
     }
 
@@ -18,7 +18,7 @@ pub fn process_messages(
     }
 }
 
-fn handle_message(server_message_dispatcher: &mut ServerToClientMessageDispatcher, msg: Vec<u8>) {
+fn handle_message(server_message_dispatcher: &mut ServerToClientMessageDispatcher, msg: Bytes) {
     let event = serde_json::de::from_slice(&msg).unwrap();
     server_message_dispatcher.send(event);
 }

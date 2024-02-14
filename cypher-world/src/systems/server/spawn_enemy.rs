@@ -90,7 +90,7 @@ fn spawn_enemy(
     entity_builder.insert(net_entity);
 
     server.broadcast_message(
-        DefaultChannel::Reliable,
+        DefaultChannel::ReliableOrdered,
         ServerMessage::EnemySpawned {
             enemy_id,
             net_entity_id,

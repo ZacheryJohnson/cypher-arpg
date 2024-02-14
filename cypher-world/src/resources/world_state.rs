@@ -1,4 +1,4 @@
-use bevy::prelude::{default, Component, Entity, Events, Resource, Vec2};
+use bevy::prelude::{default, Component, Entity, Event, Events, Resource, Vec2};
 use cypher_item::item::instance::ItemInstance;
 use cypher_item::loot_pool::definition::LootPoolDefinition;
 use std::collections::HashMap;
@@ -11,6 +11,7 @@ pub struct LootPoolDropper {
     pub loot_pool_def: Arc<Mutex<LootPoolDefinition>>,
 }
 
+#[derive(Event)]
 pub struct DeathEvent {
     pub loot_pool: Option<LootPoolDropper>,
     pub position: Vec2,

@@ -52,7 +52,7 @@ pub fn handle_mouse_input(
                 // but then cypher-net would have dependency on game libs
                 transform,
             },
-            DefaultChannel::Reliable,
+            DefaultChannel::ReliableOrdered,
         );
     }
 }

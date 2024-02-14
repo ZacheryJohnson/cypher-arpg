@@ -1,10 +1,10 @@
-use bevy::prelude::Transform;
+use bevy::prelude::{Event, Transform};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
 use crate::components::net_entity::NetEntityT;
 
-#[derive(Clone, Debug, Deserialize, Serialize, EnumDiscriminants)]
+#[derive(Clone, Debug, Deserialize, Event, Serialize, EnumDiscriminants)]
 // ZJ-TODO: if Rust adds types for enum variants, we can remove the strum discriminant functionality
 #[strum_discriminants(vis(pub))]
 #[strum_discriminants(name(ServerMessageVariant))]

@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
 use crate::messages::client::client_message::{ClientMessage, ClientMessageVariant};
+use bevy::prelude::Event;
 use bevy::prelude::{Events, Resource};
+use bevy_renet::renet::ClientId;
 
 use crate::messages::server::server_message::{ServerMessage, ServerMessageVariant};
 
+#[derive(Event)]
 pub struct ClientMessageWithId {
     pub msg: ClientMessage,
-    pub id: u64,
+    pub id: ClientId,
 }
 
 #[derive(Default, Resource)]
@@ -26,7 +29,7 @@ pub struct ServerToServerMessageDispatcher {
 }
 
 impl ClientToServerMessageDispatcher {
-    pub fn send(&mut self, message: ClientMessage, client_id: u64) {
+    pub fn send(&mut self, message: ClientMessage, client_id: ClientId) {
         let variant: ClientMessageVariant = message.into();
         let msg_with_id = ClientMessageWithId {
             msg: message,

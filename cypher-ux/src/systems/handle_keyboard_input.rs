@@ -54,7 +54,7 @@ pub fn handle_keyboard_input(
         trans.0 += delta;
     }
 
-    settings.alt_mode_enabled = keyboard_input.pressed(KeyCode::LAlt);
+    settings.alt_mode_enabled = keyboard_input.pressed(KeyCode::AltLeft);
 
     let new_transform = (
         player_transform.translation.x + trans.0,

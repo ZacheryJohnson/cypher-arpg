@@ -26,3 +26,6 @@ features = ["serialize"]
 
 [dependencies.bincode]
 workspace = true
+
+[dependencies.rand]
+workspace = true

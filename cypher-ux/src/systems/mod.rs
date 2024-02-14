@@ -1,4 +1,5 @@
-use bevy::prelude::{App, IntoSystemConfig, Query, With};
+use bevy::app::Update;
+use bevy::prelude::{App, IntoSystemConfigs, Query, With};
 use cypher_world::components::camera_follow::CameraFollow;
 
 use crate::resources::player_settings::PlayerSettings;
@@ -18,13 +19,16 @@ fn player_character_exists(query: Query<(), With<CameraFollow>>) -> bool {
 pub fn register_client_systems(app: &mut App) {
     app.init_resource::<PlayerSettings>();
 
-    app.add_systems((
-        adjust_camera_for_mouse_position::adjust_camera_for_mouse_position
-            .run_if(player_character_exists),
-        show_loot_on_hover::show_loot_on_hover.run_if(player_character_exists),
-        pickup_dropped_item_under_cursor::pickup_dropped_item_under_cursor
-            .run_if(player_character_exists),
-        handle_mouse_input::handle_mouse_input.run_if(player_character_exists),
-        handle_keyboard_input::handle_keyboard_input.run_if(player_character_exists),
-    ));
+    app.add_systems(
+        Update,
+        (
+            adjust_camera_for_mouse_position::adjust_camera_for_mouse_position
+                .run_if(player_character_exists),
+            show_loot_on_hover::show_loot_on_hover.run_if(player_character_exists),
+            pickup_dropped_item_under_cursor::pickup_dropped_item_under_cursor
+                .run_if(player_character_exists),
+            handle_mouse_input::handle_mouse_input.run_if(player_character_exists),
+            handle_keyboard_input::handle_keyboard_input.run_if(player_character_exists),
+        ),
+    );
 }

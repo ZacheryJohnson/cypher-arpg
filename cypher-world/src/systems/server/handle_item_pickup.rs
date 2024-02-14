@@ -20,7 +20,7 @@ pub fn listen_for_item_pickup(
         for ClientMessageWithId {
             msg: event,
             id: _client_id,
-        } in reader.iter(events)
+        } in reader.read(events)
         {
             let ClientMessage::PickupItem { net_entity_id } = event else {
                 panic!("what the dispatcher doin")
@@ -55,7 +55,7 @@ pub fn listen_for_item_pickup(
             net_entities.delete(net_entity_id);
 
             server.broadcast_message(
-                DefaultChannel::Reliable,
+                DefaultChannel::ReliableOrdered,
                 ServerMessage::EntityDestroyed {
                     net_entity_id: *net_entity_id,
                 }
