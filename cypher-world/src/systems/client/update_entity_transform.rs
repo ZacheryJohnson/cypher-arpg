@@ -26,7 +26,7 @@ pub fn listen_for_entity_transform_update(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::EntityTransformUpdate);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(events) {
+        for event in reader.read(events) {
             if let ServerMessage::EntityTransformUpdate {
                 net_entity_id,
                 transform,

@@ -15,7 +15,7 @@ pub fn listen_for_spawn_projectile(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::ProjectileSpawned);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(events) {
+        for event in reader.read(events) {
             if let ServerMessage::ProjectileSpawned {
                 projectile_id: _,
                 net_entity_id,

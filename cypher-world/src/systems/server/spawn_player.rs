@@ -1,6 +1,6 @@
 use bevy::ecs::event::ManualEventReader;
 use bevy::prelude::*;
-use bevy_renet::renet::{DefaultChannel, RenetServer};
+use bevy_renet::renet::{ClientId, DefaultChannel, RenetServer};
 use cypher_character::character::Character;
 use cypher_net::components::net_entity::NetEntity;
 use cypher_net::components::server_entity::ServerEntity;
@@ -27,7 +27,7 @@ pub fn listen_for_spawn_player(
     let maybe_events = dispatcher.get_events(ServerMessageVariant::PlayerConnected);
     if let Some(events) = maybe_events {
         let mut reader: ManualEventReader<ServerMessage> = Default::default();
-        for event in reader.iter(events) {
+        for event in reader.read(events) {
             if let ServerMessage::PlayerConnected { id } = event {
                 spawn_player(
                     &mut commands,
@@ -81,7 +81,7 @@ fn spawn_player(
     entity_builder.insert(net_entity);
 
     server.broadcast_message(
-        DefaultChannel::Reliable,
+        DefaultChannel::ReliableOrdered,
         ServerMessage::PlayerSpawned {
             player_id,
             net_entity_id,
@@ -95,12 +95,14 @@ fn spawn_player(
     for (transform, world_entity, existing_net_entity) in world_entities {
         println!("Replicating world entity {world_entity:?}");
 
+        let client_id = ClientId::from_raw(player_id);
+
         match world_entity.entity_type {
             EntityType::Player { .. } => {}
             EntityType::Enemy { id: enemy_id } => {
                 server.send_message(
-                    player_id,
-                    DefaultChannel::Reliable,
+                    client_id,
+                    DefaultChannel::ReliableOrdered,
                     ServerMessage::EnemySpawned {
                         enemy_id,
                         net_entity_id: existing_net_entity.id,
@@ -120,8 +122,8 @@ fn spawn_player(
                 println!("Dropping item for new client");
 
                 server.send_message(
-                    player_id,
-                    DefaultChannel::Reliable,
+                    client_id,
+                    DefaultChannel::ReliableOrdered,
                     ServerMessage::ItemDropped {
                         item_instance_raw: serde_json::ser::to_vec(
                             &*dropped_item.item_instance.lock().unwrap(),
@@ -142,9 +144,10 @@ fn spawn_player(
             .get_local_entity(net_entity_id)
             .expect("failed to get local entity for net entity");
         let (transform, _, existing_net_entity) = world_entities.get(*local_entity).unwrap();
+
         server.send_message(
-            player_id,
-            DefaultChannel::Reliable,
+            ClientId::from_raw(player_id),
+            DefaultChannel::ReliableOrdered,
             ServerMessage::PlayerSpawned {
                 player_id: *other_player_id,
                 net_entity_id: existing_net_entity.id,

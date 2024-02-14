@@ -19,7 +19,7 @@ pub fn listen_for_player_transform_update(
         for ClientMessageWithId {
             msg: event,
             id: client_id,
-        } in reader.iter(events)
+        } in reader.read(events)
         {
             let ClientMessage::PlayerTransformUpdate { transform } = event else {
                 panic!("what the dispatcher doin")
@@ -27,7 +27,7 @@ pub fn listen_for_player_transform_update(
 
             // ZJ-TODO: don't blindly trust client input
 
-            let player_net_entity = lobby.player_net_ids.get(client_id).unwrap();
+            let player_net_entity = lobby.player_net_ids.get(&client_id.raw()).unwrap();
 
             let server_msg = ServerMessage::EntityTransformUpdate {
                 net_entity_id: *player_net_entity,

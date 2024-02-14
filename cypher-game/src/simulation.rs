@@ -3,15 +3,14 @@
 
 use std::time::Duration;
 
+use bevy::app::ScheduleRunnerPlugin;
 use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
 use bevy::{
-    app::ScheduleRunnerSettings,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     ecs::event::ManualEventReader,
     log::LogPlugin,
     prelude::*,
 };
-use bevy_renet::{RenetClientPlugin, RenetServerPlugin};
 use cypher_character::character::Character;
 use cypher_data::resources::data_manager::DataManager;
 use cypher_item::item::deserializer::ItemInstanceDeserializer;
@@ -60,28 +59,27 @@ pub fn start(mode: SimulationMode) {
 
     match mode {
         SimulationMode::ClientOnly => {
-            let renet_client = Client::new_renet_client();
-            let client_id = renet_client.client_id();
+            let client_id = Client::initialize(&mut app);
 
             app.init_resource::<WorldState>()
                 .init_resource::<NetLimiter>()
                 .init_resource::<ClientNetEntityRegistry>()
                 .add_event::<ServerMessage>()
                 .init_resource::<ServerToClientMessageDispatcher>()
-                .add_plugins(DefaultPlugins)
-                .add_plugin(FrameTimeDiagnosticsPlugin::default())
-                .add_plugin(LogDiagnosticsPlugin::default())
-                .add_plugin(RenetClientPlugin::default())
-                .insert_resource(renet_client)
                 .insert_resource(ClientState { client_id })
-                .add_systems((on_item_picked_up.run_if(player_character_exists),));
+                .add_plugins((
+                    DefaultPlugins,
+                    FrameTimeDiagnosticsPlugin,
+                    LogDiagnosticsPlugin::default(),
+                ))
+                .add_systems(Update, (on_item_picked_up.run_if(player_character_exists),));
 
             #[cfg(feature = "game_client")]
             {
-                app.add_startup_systems((
-                    cypher_ux::setup::setup,
-                    cypher_world::setup::client::setup,
-                ));
+                app.add_systems(
+                    Startup,
+                    (cypher_ux::setup::setup, cypher_world::setup::client::setup),
+                );
 
                 cypher_world::systems::client::register_client_systems(&mut app);
                 cypher_net::systems::client::register_client_systems(&mut app);
@@ -89,26 +87,25 @@ pub fn start(mode: SimulationMode) {
             }
         }
         SimulationMode::ServerOnly => {
+            GameServer::initialize(&mut app);
+
             app.init_resource::<WorldState>()
                 .init_resource::<Lobby>()
-                .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-                    1.0 / 30.0,
-                )))
                 .init_resource::<ServerNetEntityRegistry>()
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
                 .init_resource::<LootGenerator>()
-                .add_plugins(MinimalPlugins)
-                .add_plugin(LogPlugin::default())
-                .add_plugin(RenetServerPlugin::default())
-                .insert_resource(GameServer::new_renet_server(socket_bind_override));
+                .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(
+                    Duration::from_secs_f64(1.0 / 30.0),
+                )))
+                .add_plugins(LogPlugin::default());
 
             cypher_net::systems::server::register_server_systems(&mut app);
             cypher_world::systems::server::register_server_systems(&mut app);
         }
         SimulationMode::ClientAndServer => {
-            let renet_client = Client::new_renet_client();
-            let client_id = renet_client.client_id();
+            let client_id = Client::initialize(&mut app);
+            GameServer::initialize(&mut app);
 
             app.init_resource::<WorldState>()
                 .init_resource::<Lobby>()
@@ -120,22 +117,20 @@ pub fn start(mode: SimulationMode) {
                 .init_resource::<ServerToServerMessageDispatcher>()
                 .init_resource::<ClientToServerMessageDispatcher>()
                 .init_resource::<LootGenerator>()
-                .add_plugins(DefaultPlugins)
-                .add_plugin(FrameTimeDiagnosticsPlugin::default())
-                .add_plugin(LogDiagnosticsPlugin::default())
-                .add_plugin(RenetServerPlugin::default())
-                .insert_resource(GameServer::new_renet_server(socket_bind_override))
-                .add_plugin(RenetClientPlugin::default())
-                .insert_resource(renet_client)
+                .add_plugins((
+                    DefaultPlugins,
+                    FrameTimeDiagnosticsPlugin,
+                    LogDiagnosticsPlugin::default(),
+                ))
                 .insert_resource(ClientState { client_id })
-                .add_systems((on_item_picked_up.run_if(player_character_exists),));
+                .add_systems(Update, (on_item_picked_up.run_if(player_character_exists),));
 
             #[cfg(feature = "game_client")]
             {
-                app.add_startup_systems((
-                    cypher_ux::setup::setup,
-                    cypher_world::setup::client::setup,
-                ));
+                app.add_systems(
+                    Startup,
+                    (cypher_ux::setup::setup, cypher_world::setup::client::setup),
+                );
 
                 cypher_world::systems::client::register_client_systems(&mut app);
                 cypher_net::systems::client::register_client_systems(&mut app);
@@ -167,7 +162,7 @@ fn on_item_picked_up(
     };
 
     let mut reader: ManualEventReader<ServerMessage> = Default::default();
-    for event in reader.iter(events) {
+    for event in reader.read(events) {
         let ServerMessage::ItemPickedUp { item_instance_raw } = event else {
             println!("dispatcher not doing stuff right lmao");
             continue;

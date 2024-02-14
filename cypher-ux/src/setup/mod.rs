@@ -3,7 +3,7 @@ use bevy::{
         AssetServer, BuildChildren, Camera2dBundle, Color, Commands, NodeBundle, Res, TextBundle,
     },
     text::TextStyle,
-    ui::{AlignItems, Display, FlexDirection, FlexWrap, Overflow, Size, Style, UiRect, Val},
+    ui::{AlignItems, Display, FlexDirection, FlexWrap, Style, UiRect, Val},
     utils::default,
 };
 
@@ -17,12 +17,11 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             UiItemTextBox,
             NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(10.0), Val::Percent(20.0)),
+                    // size: Size::new(Val::Percent(10.0), Val::Percent(20.0)),
                     flex_wrap: FlexWrap::Wrap,
                     flex_direction: FlexDirection::Column,
                     flex_shrink: 0.03,
                     display: Display::Flex,
-                    overflow: Overflow::Hidden,
                     align_items: AlignItems::FlexStart,
                     ..default()
                 },
