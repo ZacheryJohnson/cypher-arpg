@@ -1,10 +1,9 @@
+use cypher_core::affix::instance::AffixInstance;
 use serde::{Serialize, Serializer};
 use std::{
     fmt::Display,
     sync::{Arc, Mutex},
 };
-
-use cypher_core::affix::instance::AffixInstance;
 
 use super::definition::ItemDefinition;
 

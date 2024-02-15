@@ -23,6 +23,9 @@ workspace = true
 [dependencies.bevy_renet]
 workspace = true
 
+[dependencies.bevy-inspector-egui]
+workspace = true
+
 [features]
 default = ["game_client"]
 game_client = [

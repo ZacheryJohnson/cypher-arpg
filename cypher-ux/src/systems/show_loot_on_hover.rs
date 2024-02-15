@@ -32,22 +32,16 @@ pub fn show_loot_on_hover(
             .expect("failed to get primary camera");
 
         if let Some(cursor_position) = window.cursor_position() {
-            // get the size of the window
-            let window_size = Vec2::new(window.width(), window.height());
-
-            // convert screen position [0..resolution] to ndc [-1..1] (gpu coordinates)
-            let ndc = (cursor_position / window_size) * 2.0 - Vec2::ONE;
-
-            // matrix for undoing the projection and camera transform
-            let ndc_to_world =
-                camera_transform.compute_matrix() * camera.projection_matrix().inverse();
-
-            // use it to convert ndc to world-space coordinates
-            let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
+            let Some(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+            else {
+                // Couldn't convert - mouse likely outside of window
+                // Don't log - this would get spammy
+                return;
+            };
 
             for (item_drop, item_transform) in &dropped_items {
                 if collide(
-                    world_pos,
+                    world_pos.extend(0.0),
                     Vec2 { x: 10.0, y: 10.0 },
                     item_transform.translation,
                     Vec2 { x: 10.0, y: 10.0 },
