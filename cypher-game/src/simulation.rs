@@ -4,6 +4,7 @@
 use std::time::Duration;
 
 use bevy::app::ScheduleRunnerPlugin;
+use bevy::input::common_conditions::input_toggle_active;
 use bevy::reflect::erased_serde::__private::serde::de::DeserializeSeed;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -11,6 +12,7 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
 };
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use cypher_character::character::Character;
 use cypher_data::resources::data_manager::DataManager;
 use cypher_item::item::deserializer::ItemInstanceDeserializer;
@@ -71,6 +73,8 @@ pub fn start(mode: SimulationMode) {
                     DefaultPlugins,
                     FrameTimeDiagnosticsPlugin,
                     LogDiagnosticsPlugin::default(),
+                    WorldInspectorPlugin::default()
+                        .run_if(input_toggle_active(false, KeyCode::Period)),
                 ))
                 .add_systems(Update, (on_item_picked_up.run_if(player_character_exists),));
 
@@ -121,6 +125,8 @@ pub fn start(mode: SimulationMode) {
                     DefaultPlugins,
                     FrameTimeDiagnosticsPlugin,
                     LogDiagnosticsPlugin::default(),
+                    WorldInspectorPlugin::default()
+                        .run_if(input_toggle_active(false, KeyCode::Period)),
                 ))
                 .insert_resource(ClientState { client_id })
                 .add_systems(Update, (on_item_picked_up.run_if(player_character_exists),));
