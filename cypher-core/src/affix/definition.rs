@@ -21,6 +21,10 @@ pub struct AffixDefinition {
 impl DataDefinition for AffixDefinition {
     type DefinitionTypeId = AffixDefinitionId;
 
+    fn id(&self) -> u64 {
+        self.id as u64
+    }
+
     fn validate(&self) -> bool {
         self.id > 0
             && self.placement != AffixPlacement::Invalid

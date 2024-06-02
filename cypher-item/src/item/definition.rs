@@ -64,6 +64,10 @@ where
 impl DataDefinition for ItemDefinition {
     type DefinitionTypeId = ItemDefinitionId;
 
+    fn id(&self) -> u64 {
+        self.id
+    }
+
     fn validate(&self) -> bool {
         self.classification != ItemClassification::Invalid
     }

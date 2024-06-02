@@ -3,6 +3,8 @@ use std::sync::{Arc, Mutex};
 pub trait DataDefinition {
     type DefinitionTypeId;
 
+    fn id(&self) -> u64;
+
     /// Validates that this definition is valid, for whatever criteria is defined by the data type.
     /// For example, an affix definition may require that it provides at least 1 bonus.
     fn validate(&self) -> bool;

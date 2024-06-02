@@ -1,6 +1,7 @@
+use bevy::math::bounding::{Aabb2d, IntersectsVolume};
+use bevy::prelude::Vec2;
 use bevy::{
-    prelude::{Input, KeyCode, Query, Res, ResMut, Transform, Vec3, With, Without},
-    sprite::collide_aabb::collide,
+    prelude::{ButtonInput, KeyCode, Query, Res, ResMut, Transform, With, Without},
     time::Time,
 };
 use bevy_renet::renet::{DefaultChannel, RenetClient};
@@ -26,7 +27,7 @@ pub fn handle_keyboard_input(
         ),
     >,
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut settings: ResMut<PlayerSettings>,
     collidables: Query<&Transform, (With<Collider>, Without<PlayerController>)>,
     mut client: ResMut<RenetClient>,
@@ -43,14 +44,14 @@ pub fn handle_keyboard_input(
     let move_speed = BASE_MOVE_SPEED + character.stats().get_stat(&Stat::MoveSpeed).unwrap_or(&0.);
     let delta = time.delta().as_secs_f32() * move_speed;
 
-    if keyboard_input.pressed(KeyCode::W) {
+    if keyboard_input.pressed(KeyCode::KeyW) {
         trans.1 += delta;
-    } else if keyboard_input.pressed(KeyCode::S) {
+    } else if keyboard_input.pressed(KeyCode::KeyS) {
         trans.1 -= delta;
     }
-    if keyboard_input.pressed(KeyCode::A) {
+    if keyboard_input.pressed(KeyCode::KeyA) {
         trans.0 -= delta;
-    } else if keyboard_input.pressed(KeyCode::D) {
+    } else if keyboard_input.pressed(KeyCode::KeyD) {
         trans.0 += delta;
     }
 
@@ -61,18 +62,19 @@ pub fn handle_keyboard_input(
         player_transform.translation.y + trans.1,
     );
     for collidable in &collidables {
-        let collision = collide(
-            Vec3 {
+        let player_collider = Aabb2d::new(
+            Vec2 {
                 x: new_transform.0,
                 y: new_transform.1,
-                z: 0.0,
             },
             player_transform.scale.truncate(),
-            collidable.translation,
+        );
+        let collidable_collider = Aabb2d::new(
+            collidable.translation.truncate(),
             collidable.scale.truncate(),
         );
 
-        if collision.is_some() {
+        if player_collider.intersects(&collidable_collider) {
             // ZJ-TODO: would be nice if being blocked on one axis (eg west) didn't block move on unblocked axis (eg north)
             return;
         }

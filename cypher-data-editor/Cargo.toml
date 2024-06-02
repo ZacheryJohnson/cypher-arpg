@@ -12,9 +12,9 @@ cypher-item = { path = "../cypher-item" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-egui = "0.18.0"
-egui_extras = "0.18.0"
-eframe = { version = "0.18.0", features = ["persistence"] }
+egui = "0.27.2"
+egui_extras = "0.27.2"
+eframe = { version = "0.27.2", features = ["persistence"] }
 
 strum = "0.24"
 strum_macros = "0.24"

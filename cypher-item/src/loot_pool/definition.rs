@@ -21,6 +21,10 @@ pub struct LootPoolDefinition {
 impl DataDefinition for LootPoolDefinition {
     type DefinitionTypeId = LootPoolDefinitionId;
 
+    fn id(&self) -> u64 {
+        self.id as u64
+    }
+
     fn validate(&self) -> bool {
         !self.members.is_empty()
     }

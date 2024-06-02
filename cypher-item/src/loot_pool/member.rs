@@ -6,7 +6,7 @@ use crate::item::definition::ItemDefinition;
 
 /// A [LootPoolMember] is a pairing of an item that can drop, in tandem with the chance that item will drop.
 ///
-/// The lifetime `'item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
+/// The lifetime `item` is that of the [ItemDefinitionDatabase], as each [LootPoolMember] contains a reference
 /// to an [ItemDefinition] within the [ItemDefinitionDatabase] instance.
 #[derive(Clone, Debug, Serialize)]
 pub struct LootPoolMember {

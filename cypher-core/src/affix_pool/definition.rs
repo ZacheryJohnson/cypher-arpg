@@ -17,6 +17,10 @@ pub struct AffixPoolDefinition {
 impl DataDefinition for AffixPoolDefinition {
     type DefinitionTypeId = AffixPoolDefinitionId;
 
+    fn id(&self) -> u64 {
+        self.id as u64
+    }
+
     fn validate(&self) -> bool {
         !self.members.is_empty()
     }

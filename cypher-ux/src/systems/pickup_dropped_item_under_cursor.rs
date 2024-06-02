@@ -1,9 +1,9 @@
+use bevy::math::bounding::{Aabb2d, IntersectsVolume};
 use bevy::{
     prelude::{
-        Camera, Entity, GlobalTransform, Input, KeyCode, Query, Res, ResMut, Transform, Vec2, With,
-        Without,
+        ButtonInput, Camera, Entity, GlobalTransform, KeyCode, Query, Res, ResMut, Transform, Vec2,
+        With, Without,
     },
-    sprite::collide_aabb::collide,
     window::{PrimaryWindow, Window},
 };
 use bevy_renet::renet::{DefaultChannel, RenetClient};
@@ -16,12 +16,12 @@ use cypher_world::components::dropped_item::DroppedItem;
 pub fn pickup_dropped_item_under_cursor(
     mut camera_query: Query<(&Camera, &GlobalTransform)>,
     dropped_items: Query<(Entity, &Transform), (With<DroppedItem>, Without<ServerEntity>)>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     mut client: ResMut<RenetClient>,
     mut net_entities: ResMut<ClientNetEntityRegistry>,
 ) {
-    if !keyboard_input.just_pressed(KeyCode::E) {
+    if !keyboard_input.just_pressed(KeyCode::KeyE) {
         return;
     }
 
@@ -40,14 +40,12 @@ pub fn pickup_dropped_item_under_cursor(
             };
 
             for (entity, item_transform) in &dropped_items {
-                if collide(
-                    world_pos.extend(0.0),
+                let world_pos_collider = Aabb2d::new(world_pos, Vec2 { x: 10.0, y: 10.0 });
+                let item_collider = Aabb2d::new(
+                    item_transform.translation.truncate(),
                     Vec2 { x: 10.0, y: 10.0 },
-                    item_transform.translation,
-                    Vec2 { x: 10.0, y: 10.0 },
-                )
-                .is_some()
-                {
+                );
+                if world_pos_collider.intersects(&item_collider) {
                     if let Some(net_entity) = net_entities.get_net_entity(entity) {
                         client.send_message(
                             DefaultChannel::ReliableOrdered,

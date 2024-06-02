@@ -1,4 +1,4 @@
-use bevy::prelude::{Input, MouseButton, Query, Res, ResMut, Transform, Vec3, With};
+use bevy::prelude::{ButtonInput, MouseButton, Query, Res, ResMut, Transform, Vec3, With};
 use bevy_renet::renet::{DefaultChannel, RenetClient};
 use cypher_character::character::Character;
 use cypher_net::{
@@ -19,7 +19,7 @@ pub fn handle_mouse_input(
             With<CameraFollow>, /* ZJ-TODO: this is a hack, don't use CameraFollow */
         ),
     >,
-    mouse_input: Res<Input<MouseButton>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
     mut settings: ResMut<PlayerSettings>,
     mut client: ResMut<RenetClient>,
     mut net_limiter: ResMut<NetLimiter>,

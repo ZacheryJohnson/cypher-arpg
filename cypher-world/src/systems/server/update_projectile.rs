@@ -1,5 +1,5 @@
+use bevy::math::bounding::{Aabb2d, IntersectsVolume};
 use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Time, Transform, Vec2, With, Without};
-use bevy::sprite::collide_aabb::collide;
 use bevy_renet::renet::{DefaultChannel, RenetServer};
 use cypher_net::components::net_entity::NetEntity;
 use cypher_net::components::server_entity::ServerEntity;
@@ -69,14 +69,15 @@ pub fn update_projectiles(
                 continue;
             }
 
-            if collide(
-                projectile_transform.translation,
+            let projectile_aabb = Aabb2d::new(
+                projectile_transform.translation.truncate(),
                 projectile_transform.scale.truncate(),
-                collidable_transform.translation,
+            );
+            let collidable_aabb = Aabb2d::new(
+                collidable_transform.translation.truncate(),
                 collidable_transform.scale.truncate(),
-            )
-            .is_some()
-            {
+            );
+            if projectile_aabb.intersects(&collidable_aabb) {
                 hit_points.health -= projectile.damage;
                 if hit_points.health <= 0.0 {
                     commands.entity(collider_entity).despawn();
